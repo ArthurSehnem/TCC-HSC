@@ -212,7 +212,6 @@ def pagina_adicionar_equipamento(supabase):
                 help="Localização do equipamento no hospital"
             )
         
-        with col2:
             numero_serie = st.text_input(
                 "Número de Série *", 
                 placeholder="Ex: SN123456789",
@@ -274,7 +273,6 @@ def pagina_registrar_manutencao(supabase):
                     help="Preventiva: programada | Corretiva: por falha"
                 )
             
-            with col2:
                 descricao = st.text_area(
                     "Descrição da manutenção *",
                     placeholder="Descreva detalhadamente o trabalho a ser realizado...",
