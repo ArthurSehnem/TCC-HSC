@@ -8,8 +8,11 @@ url = "https://kksuykamygfpwqcyswum.supabase.co"
 key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtrc3V5a2FteWdmcHdxY3lzd3VtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxOTAzNjAsImV4cCI6MjA3MDc2NjM2MH0.NwjTHIe0aknCfBZ7lL7CRkyzBTOY3J4ST1fBt1YvzCY"
 supabase = create_client(url, key)
 
+# Caminho relativo para o logo
+logo_path = os.path.join("images", "logo.png")  # Coloque a imagem nessa pasta no seu projeto
+
 # Carregar imagem e converter para base64
-with open(r"C:\Users\Arthur Sehnem\Desktop\TCC\Desenvolvimento\logo.png", "rb") as f:
+with open(logo_path, "rb") as f:
     img_bytes = f.read()
 encoded = base64.b64encode(img_bytes).decode()
 
@@ -22,7 +25,6 @@ st.sidebar.markdown(
     """,
     unsafe_allow_html=True
 )
-
 st.sidebar.markdown("---")
 pagina = st.sidebar.radio("Navegue para:", ["Página Inicial", "Registrar Manutenção","Adicionar Equipamento", "Dashboard"])
 
@@ -216,4 +218,5 @@ elif pagina == "Dashboard":
             df_manut_filtrado = df_manut_filtrado.merge(df_equip[['id','setor']], left_on='equipamento_id', right_on='id', how='left')
             st.bar_chart(df_manut_filtrado['setor'].value_counts())
     else:
+
         st.info("Nenhum equipamento encontrado.")
