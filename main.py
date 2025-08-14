@@ -198,7 +198,7 @@ def pagina_adicionar_equipamento(supabase):
         """)
     
     with st.form("form_equipamento", clear_on_submit=True):
-        col1 = st.columns(1)
+        col1, col2 = st.columns(2)
         
         with col1:
             nome = st.text_input(
@@ -257,27 +257,24 @@ def pagina_registrar_manutencao(supabase):
             return
         
         with st.form("form_abrir_manutencao"):
-            col1, col2 = st.columns(2)
+            equipamento_dict = {f"{e['nome']} - {e['setor']}": e['id'] for e in equipamentos_ativos}
+            equipamento_selecionado = st.selectbox(
+                "Equipamento *",
+                [""] + list(equipamento_dict.keys()),
+                help="Apenas equipamentos ativos são mostrados"
+            )
             
-            with col1:
-                equipamento_dict = {f"{e['nome']} - {e['setor']}": e['id'] for e in equipamentos_ativos}
-                equipamento_selecionado = st.selectbox(
-                    "Equipamento *",
-                    [""] + list(equipamento_dict.keys()),
-                    help="Apenas equipamentos ativos são mostrados"
-                )
-                
-                tipo = st.selectbox(
-                    "Tipo de manutenção *", 
-                    ["", "Preventiva", "Corretiva"],
-                    help="Preventiva: programada | Corretiva: por falha"
-                )
-            
-                descricao = st.text_area(
-                    "Descrição da manutenção *",
-                    placeholder="Descreva detalhadamente o trabalho a ser realizado...",
-                    height=100
-                )
+            tipo = st.selectbox(
+                "Tipo de manutenção *", 
+                ["", "Preventiva", "Corretiva"],
+                help="Preventiva: programada | Corretiva: por falha"
+            )
+        
+            descricao = st.text_area(
+                "Descrição da manutenção *",
+                placeholder="Descreva detalhadamente o trabalho a ser realizado...",
+                height=100
+            )
             
             submitted = st.form_submit_button("Abrir Manutenção", type="primary")
             
