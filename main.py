@@ -12,8 +12,8 @@ import streamlit as st
 # -------------------
 # Login único
 # -------------------
-ADMIN_EMAIL = st.secrets["login"]["email"]
-ADMIN_PASSWORD = st.secrets["login"]["password"]
+ADMIN_EMAIL = st.secrets["ADMIN_EMAIL"]
+ADMIN_PASSWORD = st.secrets["ADMIN_PASSWORD"]
 
 def login():
     st.title("Login - Sistema HSC")
@@ -432,3 +432,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
