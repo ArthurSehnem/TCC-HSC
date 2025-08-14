@@ -133,8 +133,9 @@ def finish_maintenance(supabase, manut_id: int, equipamento_id: int) -> bool:
 # Páginas
 # -------------------
 def pagina_inicial(): 
+    """Página inicial melhorada."""
     st.title("Sistema de Manutenção | HSC") 
-    st.markdown(""" ### Bem-vindo ao Sistema de Gestão de Manutenção Este sistema é fruto de uma **parceria entre o Hospital Santa Cruz (HSC) e a UNISC**, desenvolvido para **apoiar o hospital na gestão e histórico das manutenções de equipamentos críticos**. #### Funcionalidades Principais: - **Dashboard Interativo**: Visualize status e métricas em tempo real - **Gestão de Manutenções**: Registre e acompanhe todas as intervenções - **Cadastro de Equipamentos**: Mantenha inventário atualizado - **Relatórios Avançados**: Análises detalhadas para tomada de decisão #### Nossos Objetivos: Tornar a gestão de equipamentos **mais eficiente, segura e transparente** para todos os profissionais envolvidos. """) 
+    st.markdown("""### Bem-vindo ao Sistema de Gestão de Manutenção Este sistema é fruto de uma **parceria entre o Hospital Santa Cruz (HSC) e a UNISC**, desenvolvido para **apoiar o hospital na gestão e histórico das manutenções de equipamentos críticos**. #### Funcionalidades Principais: - **Dashboard Interativo**: Visualize status e métricas em tempo real - **Gestão de Manutenções**: Registre e acompanhe todas as intervenções - **Cadastro de Equipamentos**: Mantenha inventário atualizado - **Relatórios Avançados**: Análises detalhadas para tomada de decisão #### Nossos Objetivos: Tornar a gestão de equipamentos **mais eficiente, segura e transparente** para todos os profissionais envolvidos. """) 
     st.info(""" 💡 **Dica de Navegação** Use a sidebar à esquerda para navegar entre as funcionalidades do sistema. Cada seção foi otimizada para facilitar seu trabalho diário.""")
 
 def pagina_adicionar_equipamento(supabase):
