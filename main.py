@@ -16,35 +16,41 @@ ADMIN_EMAIL = st.secrets["login"]["email"]
 ADMIN_PASSWORD = st.secrets["login"]["password"]
 
 def login():
-    st.title("Login - Sistema HSC")
-    
-    # Logo opcional
-    st.image("logo.png", width=120)
-    
-    # Texto explicativo
-    st.info(
-        """
-        ⚠️ **Acesso restrito aos profissionais autorizados do Hospital Santa Cruz.**  
-        Por favor, insira suas credenciais para continuar.
-        """
-    )
+    st.title("Acesso ao Sistema HSC")
 
-    # Formulário de login
-    with st.form("login_form"):
+    col1, col2 = st.columns([1, 1.2])  # Ajuste larguras
+
+    # Lado esquerdo: logo + texto
+    with col1:
+        logo = load_logo()
+        if logo:
+            st.markdown(
+                f"<img src='data:image/png;base64,{logo}' width='150'>", 
+                unsafe_allow_html=True
+            )
+        st.markdown("""
+        ### Bem-vindo(a)!
+        Acesse o Sistema de Gestão de Manutenção do **Hospital Santa Cruz (HSC)**.
+        
+        ⚠️ Somente pessoal autorizado pode acessar.
+        
+        Para dúvidas, contate: **ti@hsc.org.br**
+        """)
+
+    # Lado direito: campos de login
+    with col2:
+        st.subheader("Login")
         email = st.text_input("Email")
         senha = st.text_input("Senha", type="password")
-        submitted = st.form_submit_button("Entrar")
-
-    if submitted:
-        if email == ADMIN_EMAIL and senha == ADMIN_PASSWORD:
-            st.success("Login realizado com sucesso!")
-            st.session_state["user"] = email
-        else:
-            st.error(
-                "Email ou senha incorretos.\n"
-                "Se você esqueceu a senha, contate o setor de TI do hospital."
-            )
-
+        
+        if st.button("Entrar"):
+            ADMIN_EMAIL = st.secrets["login"]["email"]
+            ADMIN_PASSWORD = st.secrets["login"]["password"]
+            if email == ADMIN_EMAIL and senha == ADMIN_PASSWORD:
+                st.success("Login realizado com sucesso!")
+                st.session_state["user"] = email
+            else:
+                st.error("Email ou senha incorretos.")
 def main():
     if "user" not in st.session_state:
         login()
@@ -437,3 +443,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
