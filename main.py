@@ -11,9 +11,16 @@ from typing import Optional, Dict, List
 st.set_page_config(
     page_title="Sistema de Manutenção | HSC",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
+    page_icon="🛠️",
+    theme={
+        "primaryColor": "#1E90FF",        # azul
+        "backgroundColor": "#FFFFFF",
+        "secondaryBackgroundColor": "#F0F2F6",
+        "textColor": "#000000",
+        "font": "sans serif"
+    }
 )
-
 # Define tema customizado (cores dos botões, seleção, etc.)
 st.markdown(
     """
