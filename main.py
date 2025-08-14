@@ -19,7 +19,7 @@ def login():
     st.title("Login - Sistema HSC")
     
     # Logo opcional
-    st.image("logo.png", width=120)
+    #st.image("logo.png", width=120)
     
     # Texto explicativo
     st.info(
@@ -437,3 +437,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
