@@ -14,23 +14,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Aplicando CSS para cores de interação azul
-st.markdown("""
-    <style>
-    div.stButton > button:first-child {
-        background-color: #1f77b4 !important;
-        color: white !important;
-    }
-    div.stButton > button:hover {
-        background-color: #155a8a !important;
-    }
-    /* Ajustes em selectbox, radio, checkboxes */
-    .stSelectbox select, .stRadio input[type="radio"] + label, .stCheckbox input[type="checkbox"] + label {
-        color: #1f77b4;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
 # -------------------
 # Inicialização do Supabase
 # -------------------
@@ -149,13 +132,10 @@ def finish_maintenance(supabase, manut_id: int, equipamento_id: int) -> bool:
 # -------------------
 # Páginas
 # -------------------
-def pagina_inicial():
-    st.title("Sistema de Manutenção | HSC")
-    st.markdown("""
-    ### Bem-vindo ao Sistema de Gestão de Manutenção
-    Este sistema é fruto de uma **parceria entre o Hospital Santa Cruz (HSC) e a UNISC**.
-    """)
-    st.info("💡 Use a sidebar à esquerda para navegar entre as funcionalidades do sistema.")
+def pagina_inicial(): 
+    st.title("Sistema de Manutenção | HSC") 
+    st.markdown(""" ### Bem-vindo ao Sistema de Gestão de Manutenção Este sistema é fruto de uma **parceria entre o Hospital Santa Cruz (HSC) e a UNISC**, desenvolvido para **apoiar o hospital na gestão e histórico das manutenções de equipamentos críticos**. #### Funcionalidades Principais: - **Dashboard Interativo**: Visualize status e métricas em tempo real - **Gestão de Manutenções**: Registre e acompanhe todas as intervenções - **Cadastro de Equipamentos**: Mantenha inventário atualizado - **Relatórios Avançados**: Análises detalhadas para tomada de decisão #### Nossos Objetivos: Tornar a gestão de equipamentos **mais eficiente, segura e transparente** para todos os profissionais envolvidos. """) 
+    st.info(""" 💡 **Dica de Navegação** Use a sidebar à esquerda para navegar entre as funcionalidades do sistema. Cada seção foi otimizada para facilitar seu trabalho diário.""")
 
 def pagina_adicionar_equipamento(supabase):
     st.header("Adicionar Novo Equipamento")
@@ -178,7 +158,7 @@ def pagina_adicionar_equipamento(supabase):
                 st.error(error)
             else:
                 if insert_equipment(supabase, nome, setor, numero_serie):
-                    st.success(f"✅ Equipamento '{nome}' cadastrado com sucesso!")
+                    st.success(f"Equipamento '{nome}' cadastrado com sucesso!")
                     st.balloons()
                     st.cache_data.clear()
                 else:
