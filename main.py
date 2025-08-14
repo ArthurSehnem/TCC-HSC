@@ -198,7 +198,7 @@ def pagina_adicionar_equipamento(supabase):
         """)
     
     with st.form("form_equipamento", clear_on_submit=True):
-        col1, col2 = st.columns(2)
+        col1 = st.columns(1)
         
         with col1:
             nome = st.text_input(
