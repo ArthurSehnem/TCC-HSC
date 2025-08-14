@@ -11,33 +11,7 @@ from typing import Optional, Dict, List
 st.set_page_config(
     page_title="Sistema de Manutenção | HSC",
     layout="wide",
-    initial_sidebar_state="expanded",
-    page_icon="🛠️"
-)
-
-
-# Define tema customizado (cores dos botões, seleção, etc.)
-st.markdown(
-    """
-    <style>
-    /* Botões primários */
-    div.stButton > button:first-child {
-        background-color: #1E90FF;  /* Azul */
-        color: white;
-    }
-    div.stButton > button:hover {
-        background-color: #1C86EE;  /* Azul mais escuro ao passar mouse */
-        color: white;
-    }
-    
-    /* Selectbox, multiselect e sliders */
-    div.stSelectbox > div > div > div > div {
-        color: #000000;  /* texto */
-        background-color: #F0F8FF;  /* fundo azul clarinho */
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
+    initial_sidebar_state="expanded"
 )
 
 # Aplicando CSS para cores de interação azul
