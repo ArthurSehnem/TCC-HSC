@@ -1,3 +1,4 @@
 streamlit
 pandas
 supabase
+plotly==5.17.0
