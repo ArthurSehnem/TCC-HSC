@@ -25,7 +25,7 @@ def init_supabase():
         st.error(f"Erro ao conectar com o banco de dados: {e}")
         return None
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=300)  # Cache por 5 minutos
 def load_logo():
     """Carrega logo com cache e tratamento de erro."""
     try:
@@ -75,6 +75,12 @@ def fetch_manutencoes(supabase) -> List[Dict]:
         st.error(f"Erro ao carregar manutenções: {e}")
         return []
 
+def clear_form_state():
+    """Limpa estado do formulário após sucesso."""
+    for key in ["nome", "setor", "numero_serie"]:
+        if key in st.session_state:
+            del st.session_state[key]
+
 def validate_equipment_data(nome: str, setor: str, numero_serie: str) -> Optional[str]:
     """Valida dados do equipamento."""
     if not nome.strip():
@@ -105,6 +111,7 @@ def insert_equipment(supabase, nome: str, setor: str, numero_serie: str) -> bool
 def start_maintenance(supabase, equipamento_id: int, tipo: str, descricao: str) -> bool:
     """Inicia manutenção com transação."""
     try:
+        # Insere manutenção
         manut_response = supabase.table("manutencoes").insert({
             "equipamento_id": equipamento_id,
             "tipo": tipo,
@@ -114,6 +121,7 @@ def start_maintenance(supabase, equipamento_id: int, tipo: str, descricao: str) 
         }).execute()
         
         if manut_response.data:
+            # Atualiza status do equipamento
             supabase.table("equipamentos").update({
                 "status": "Em manutenção"
             }).eq("id", equipamento_id).execute()
@@ -126,12 +134,14 @@ def start_maintenance(supabase, equipamento_id: int, tipo: str, descricao: str) 
 def finish_maintenance(supabase, manut_id: int, equipamento_id: int) -> bool:
     """Finaliza manutenção com transação."""
     try:
+        # Atualiza manutenção
         manut_response = supabase.table("manutencoes").update({
             "data_fim": datetime.now().isoformat(),
             "status": "Concluída"
         }).eq("id", manut_id).execute()
         
         if manut_response.data:
+            # Atualiza status do equipamento
             supabase.table("equipamentos").update({
                 "status": "Ativo"
             }).eq("id", equipamento_id).execute()
@@ -145,7 +155,9 @@ def finish_maintenance(supabase, manut_id: int, equipamento_id: int) -> bool:
 # Páginas
 # -------------------
 def pagina_inicial():
+    """Página inicial melhorada."""
     st.title("Sistema de Manutenção | HSC")
+    
     st.markdown("""
     ### Bem-vindo ao Sistema de Gestão de Manutenção
     
@@ -153,61 +165,117 @@ def pagina_inicial():
     desenvolvido para **apoiar o hospital na gestão e histórico das manutenções de equipamentos críticos**.
     
     #### Funcionalidades Principais:
-    - **Dashboard Interativo**
-    - **Gestão de Manutenções**
-    - **Cadastro de Equipamentos**
-    - **Relatórios Avançados**
+    - **Dashboard Interativo**: Visualize status e métricas em tempo real
+    - **Gestão de Manutenções**: Registre e acompanhe todas as intervenções
+    - **Cadastro de Equipamentos**: Mantenha inventário atualizado
+    - **Relatórios Avançados**: Análises detalhadas para tomada de decisão
     
-    #### Objetivo:
-    Tornar a gestão de equipamentos **mais eficiente, segura e transparente**.
+    #### Nossos Objetivos:
+    Tornar a gestão de equipamentos **mais eficiente, segura e transparente** 
+    para todos os profissionais envolvidos.
     """)
-    st.info("💡 Use a sidebar à esquerda para navegar entre as funcionalidades do sistema.")
+    
+    
+    st.info("""
+    💡 **Dica de Navegação**
+    
+    Use a sidebar à esquerda para navegar entre as funcionalidades do sistema.
+    
+    Cada seção foi otimizada para facilitar seu trabalho diário.
+    """)
 
 def pagina_adicionar_equipamento(supabase):
+    """Página de cadastro de equipamentos melhorada."""
     st.header("Adicionar Novo Equipamento")
+    
     with st.expander("Instruções", expanded=False):
         st.markdown("""
         **Informações importantes:**
         - Todos os campos são obrigatórios
         - O número de série deve ser único
-        - Equipamentos são criados com status "Ativo"
+        - As informações impactam diretamente nos relatórios
+        - Equipamentos são criados com status "Ativo" por padrão
         """)
+    
     with st.form("form_equipamento", clear_on_submit=True):
-        # Apenas uma coluna
-        nome = st.text_input("Nome do equipamento *", placeholder="Ex: Respirador ABC-123")
-        setor = st.text_input("Setor *", placeholder="Ex: UTI, Centro Cirúrgico")
-        numero_serie = st.text_input("Número de Série *", placeholder="Ex: SN123456789")
-
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            nome = st.text_input(
+                "Nome do equipamento *", 
+                placeholder="Ex: Respirador ABC-123",
+                help="Nome descritivo do equipamento"
+            )
+            setor = st.text_input(
+                "Setor *", 
+                placeholder="Ex: UTI, Centro Cirúrgico",
+                help="Localização do equipamento no hospital"
+            )
+        
+            numero_serie = st.text_input(
+                "Número de Série *", 
+                placeholder="Ex: SN123456789",
+                help="Número único de identificação"
+            )
+        
         submitted = st.form_submit_button("Cadastrar Equipamento", type="primary")
+        
         if submitted:
             error = validate_equipment_data(nome, setor, numero_serie)
             if error:
-                st.error(error)
+                st.error(f"{error}")
             else:
                 with st.spinner("Cadastrando equipamento..."):
                     if insert_equipment(supabase, nome, setor, numero_serie):
                         st.success(f"✅ Equipamento '{nome}' cadastrado com sucesso!")
                         st.balloons()
+                        # Limpa cache para atualizar dados
                         st.cache_data.clear()
                     else:
                         st.error("Erro ao cadastrar equipamento. Tente novamente.")
 
 def pagina_registrar_manutencao(supabase):
+    """Página de manutenções melhorada."""
     st.header("Registrar Manutenção")
+    
     tab1, tab2 = st.tabs(["Abrir Manutenção", "Finalizar Manutenção"])
     
     with tab1:
         st.subheader("Abrir nova manutenção")
-        equipamentos_ativos = [e for e in fetch_equipamentos(supabase) if e['status'] == 'Ativo']
+        
+        equipamentos_data = fetch_equipamentos(supabase)
+        
+        if not equipamentos_data:
+            st.warning("Nenhum equipamento cadastrado. Cadastre um equipamento primeiro.")
+            return
+        
+        # Filtrar apenas equipamentos ativos
+        equipamentos_ativos = [e for e in equipamentos_data if e['status'] == 'Ativo']
+        
         if not equipamentos_ativos:
-            st.warning("Nenhum equipamento ativo disponível.")
+            st.warning("Nenhum equipamento ativo disponível para manutenção.")
             return
         
         with st.form("form_abrir_manutencao"):
             equipamento_dict = {f"{e['nome']} - {e['setor']}": e['id'] for e in equipamentos_ativos}
-            equipamento_selecionado = st.selectbox("Equipamento *", [""] + list(equipamento_dict.keys()))
-            tipo = st.selectbox("Tipo de manutenção *", ["", "Preventiva", "Corretiva"])
-            descricao = st.text_area("Descrição da manutenção *", height=100)
+            equipamento_selecionado = st.selectbox(
+                "Equipamento *",
+                [""] + list(equipamento_dict.keys()),
+                help="Apenas equipamentos ativos são mostrados"
+            )
+            
+            tipo = st.selectbox(
+                "Tipo de manutenção *", 
+                ["", "Preventiva", "Corretiva"],
+                help="Preventiva: programada | Corretiva: por falha"
+            )
+        
+            descricao = st.text_area(
+                "Descrição da manutenção *",
+                placeholder="Descreva detalhadamente o trabalho a ser realizado...",
+                height=100
+            )
+            
             submitted = st.form_submit_button("Abrir Manutenção", type="primary")
             
             if submitted:
@@ -215,92 +283,136 @@ def pagina_registrar_manutencao(supabase):
                     st.error("Todos os campos são obrigatórios!")
                 else:
                     equipamento_id = equipamento_dict[equipamento_selecionado]
-                    if start_maintenance(supabase, equipamento_id, tipo, descricao):
-                        st.success(f"Manutenção aberta para {equipamento_selecionado}!")
-                        st.rerun()
-                    else:
-                        st.error("Erro ao abrir manutenção.")
-
+                    with st.spinner("Abrindo manutenção..."):
+                        if start_maintenance(supabase, equipamento_id, tipo, descricao):
+                            st.success(f"Manutenção aberta com sucesso para {equipamento_selecionado}!")
+                            st.rerun()
+                        else:
+                            st.error("Erro ao abrir manutenção.")
+    
     with tab2:
-        st.subheader("Finalizar manutenção")
-        manut_abertas = [m for m in fetch_manutencoes(supabase) if m['status'] == 'Em andamento']
-        if not manut_abertas:
-            st.info("Não há manutenções em andamento.")
+        st.subheader("Finalizar manutenção em andamento")
+        
+        manutencoes_data = fetch_manutencoes(supabase)
+        manutencoes_abertas = [m for m in manutencoes_data if m['status'] == 'Em andamento']
+        
+        if not manutencoes_abertas:
+            st.info("Não há manutenções em andamento no momento.")
             return
+        
         equipamentos_data = fetch_equipamentos(supabase)
+        
         with st.form("form_finalizar_manutencao"):
             manut_dict = {}
-            for m in manut_abertas:
-                eq_nome = next((e['nome'] for e in equipamentos_data if e['id']==m['equipamento_id']), "Desconhecido")
-                manut_dict[f"{eq_nome} | {m['tipo']} | {m['descricao'][:50]}..."] = {'manut_id': m['id'], 'equip_id': m['equipamento_id']}
-            manut_selecionada = st.selectbox("Manutenção em andamento *", [""] + list(manut_dict.keys()))
+            for m in manutencoes_abertas:
+                eq_nome = next((e['nome'] for e in equipamentos_data if e['id'] == m['equipamento_id']), "Desconhecido")
+                manut_dict[f"{eq_nome} | {m['tipo']} | {m['descricao'][:50]}..."] = {
+                    'manut_id': m['id'], 
+                    'equip_id': m['equipamento_id']
+                }
+            
+            manut_selecionada = st.selectbox(
+                "Manutenção em andamento *",
+                [""] + list(manut_dict.keys())
+            )
+            
             submitted = st.form_submit_button("Finalizar Manutenção", type="primary")
+            
             if submitted:
                 if not manut_selecionada:
                     st.error("Selecione uma manutenção para finalizar!")
                 else:
                     manut_info = manut_dict[manut_selecionada]
-                    if finish_maintenance(supabase, manut_info['manut_id'], manut_info['equip_id']):
-                        st.success("Manutenção finalizada com sucesso!")
-                        st.rerun()
-                    else:
-                        st.error("Erro ao finalizar manutenção.")
+                    with st.spinner("Finalizando manutenção..."):
+                        if finish_maintenance(supabase, manut_info['manut_id'], manut_info['equip_id']):
+                            st.success("Manutenção finalizada com sucesso!")
+                            st.rerun()
+                        else:
+                            st.error("Erro ao finalizar manutenção.")
 
 def create_streamlit_charts(df_equip: pd.DataFrame, df_manut: pd.DataFrame):
+    """Cria gráficos usando recursos nativos do Streamlit."""
     charts = {}
+    
+    # Dados para gráficos de equipamentos
     if not df_equip.empty:
         charts['setor_data'] = df_equip['setor'].value_counts()
         charts['status_data'] = df_equip['status'].value_counts()
+    
+    # Dados para gráficos de manutenções
     if not df_manut.empty:
         charts['manut_status_data'] = df_manut['status'].value_counts()
         charts['manut_tipo_data'] = df_manut['tipo'].value_counts()
+    
     return charts
 
 def pagina_dashboard(supabase):
     st.header("Dashboard de Equipamentos e Manutenções")
+    
     df_equip = pd.DataFrame(fetch_equipamentos(supabase))
     df_manut = pd.DataFrame(fetch_manutencoes(supabase))
+    
     if df_equip.empty:
         st.warning("Nenhum equipamento cadastrado.")
         return
     
-    # KPIs
+    # KPIs principais em colunas
     st.subheader("Indicadores Principais")
     col1, col2, col3, col4 = st.columns(4)
+    
     total_equip = len(df_equip)
     ativos = len(df_equip[df_equip['status']=='Ativo'])
     em_manut = len(df_equip[df_equip['status']=='Em manutenção'])
-    col1.metric("Total", total_equip)
+    disponibilidade = (ativos/total_equip)*100 if total_equip > 0 else 0
+    
+    col1.metric("Total de Equipamentos", total_equip)
     col2.metric("Ativos", ativos, delta=f"{(ativos/total_equip)*100:.1f}%")
     col3.metric("Em Manutenção", em_manut, delta=f"{(em_manut/total_equip)*100:.1f}%")
-    col4.metric("Disponibilidade", f"{(ativos/total_equip)*100:.1f}%")
+    col4.metric("Disponibilidade", f"{disponibilidade:.1f}%")
     
-    # Gráficos
+    # Gráficos empilhados
     st.subheader("Visualizações")
     charts = create_streamlit_charts(df_equip, df_manut)
-    col1, col2 = st.columns(2)
+    
     if 'setor_data' in charts:
-        with col1: st.bar_chart(charts['setor_data'])
+        st.subheader("Equipamentos por Setor")
+        st.bar_chart(charts['setor_data'])
+    
     if 'status_data' in charts:
-        with col2: st.bar_chart(charts['status_data'])
+        st.subheader("Distribuição por Status")
+        st.bar_chart(charts['status_data'])
+    
     if not df_manut.empty:
-        col3, col4 = st.columns(2)
-        if 'manut_status_data' in charts: col3.bar_chart(charts['manut_status_data'])
-        if 'manut_tipo_data' in charts: col4.bar_chart(charts['manut_tipo_data'])
+        if 'manut_status_data' in charts:
+            st.subheader("Manutenções por Status")
+            st.bar_chart(charts['manut_status_data'])
+        
+        if 'manut_tipo_data' in charts:
+            st.subheader("Manutenções por Tipo")
+            st.bar_chart(charts['manut_tipo_data'])
 
 # -------------------
 # Aplicação principal
 # -------------------
 def main():
+    """Função principal da aplicação."""
     supabase = init_supabase()
+    
     if not supabase:
-        st.error("Erro de conexão com o banco de dados.")
+        st.error("Erro de conexão com o banco de dados. Verifique as configurações.")
         return
+    
     pagina = show_sidebar()
-    if pagina == "Página Inicial": pagina_inicial()
-    elif pagina == "Adicionar Equipamento": pagina_adicionar_equipamento(supabase)
-    elif pagina == "Registrar Manutenção": pagina_registrar_manutencao(supabase)
-    elif pagina == "Dashboard": pagina_dashboard(supabase)
+    
+    # Roteamento de páginas
+    if pagina == "Página Inicial":
+        pagina_inicial()
+    elif pagina == "Adicionar Equipamento":
+        pagina_adicionar_equipamento(supabase)
+    elif pagina == "Registrar Manutenção":
+        pagina_registrar_manutencao(supabase)
+    elif pagina == "Dashboard":
+        pagina_dashboard(supabase)
 
 if __name__ == "__main__":
     main()
