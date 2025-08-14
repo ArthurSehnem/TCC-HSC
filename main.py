@@ -7,6 +7,48 @@ from typing import Optional, Dict, List
 import plotly.express as px
 import plotly.graph_objects as go
 
+import streamlit as st
+
+# -------------------
+# Login único
+# -------------------
+ADMIN_EMAIL = st.secrets["login"]["email"]
+ADMIN_PASSWORD = st.secrets["login"]["password"]
+
+def login():
+    st.title("Login - Sistema HSC")
+    email = st.text_input("Email")
+    senha = st.text_input("Senha", type="password")
+    
+    if st.button("Entrar"):
+        if email == ADMIN_EMAIL and senha == ADMIN_PASSWORD:
+            st.success("Login realizado com sucesso!")
+            st.session_state["user"] = email
+            st.experimental_rerun()  # recarrega o app após login
+        else:
+            st.error("Email ou senha incorretos.")
+
+def login():
+    st.title("Login - Sistema HSC")
+    email = st.text_input("Email")
+    senha = st.text_input("Senha", type="password")
+    
+    if st.button("Entrar"):
+        if email == ADMIN_EMAIL and senha == ADMIN_PASSWORD:
+            st.success("Login realizado com sucesso!")
+            st.session_state["user"] = email
+        else:
+            st.error("Email ou senha incorretos.")
+
+def main():
+    if "user" not in st.session_state:
+        login()
+        st.stop()  # impede que o restante do app carregue
+    st.write("Conteúdo protegido do hospital")
+
+if __name__ == "__main__":
+    main()
+
 # -------------------
 # Configuração inicial
 # -------------------
@@ -203,6 +245,7 @@ def pagina_registrar_manutencao(supabase):
                     equipamento_id = equipamento_dict[equipamento_selecionado]
                     if start_maintenance(supabase, equipamento_id, tipo, descricao):
                         st.success(f"Manutenção aberta com sucesso para {equipamento_selecionado}!")
+                        st.balloons()
                         st.rerun()
                     else:
                         st.error("Erro ao abrir manutenção.")
