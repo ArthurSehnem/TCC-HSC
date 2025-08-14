@@ -21,6 +21,7 @@ st.set_page_config(
         "font": "sans serif"
     }
 )
+
 # Define tema customizado (cores dos botões, seleção, etc.)
 st.markdown(
     """
