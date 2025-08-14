@@ -2,6 +2,7 @@ import streamlit as st
 import base64
 from supabase import create_client
 import pandas as pd
+from datetime import datetime
 
 # -------------------
 # Conexão com Supabase
@@ -57,14 +58,18 @@ Nosso objetivo é tornar a gestão de equipamentos **mais eficiente, segura e tr
 # -------------------
 elif pagina == "Adicionar Equipamento":
     st.header("Adicionar Novo Equipamento")
-    st.write("Preencha os campos abaixo para cadastrar um novo equipamento no sistema.")
+    st.markdown("""
+Nesta página, você pode cadastrar novos equipamentos. 
+Manter o sistema atualizado é essencial, então solicitamos algumas informações básicas para registro em nosso banco de dados.  
 
-    if "nome" not in st.session_state:
-        st.session_state.nome = ""
-    if "setor" not in st.session_state:
-        st.session_state.setor = ""
-    if "numero_serie" not in st.session_state:
-        st.session_state.numero_serie = ""
+Pedimos atenção ao preencher os campos, pois as informações inseridas impactam diretamente 
+nos relatórios e no painel de Business Intelligence.
+""")
+
+    # Estado inicial
+    for key in ["nome", "setor", "numero_serie"]:
+        if key not in st.session_state:
+            st.session_state[key] = ""
 
     nome = st.text_input("Nome do equipamento", value=st.session_state.nome)
     setor = st.text_input("Setor", value=st.session_state.setor)
@@ -92,8 +97,15 @@ elif pagina == "Adicionar Equipamento":
 # Página de manutenções
 # -------------------
 elif pagina == "Registrar Manutenção":
-    st.header("Gerenciar Manutenções")
-    st.write("Abra uma nova manutenção ou finalize uma manutenção existente.")
+    st.header("Registrar Manutenção")
+    st.markdown("""
+Nesta página, você pode registrar as manutenções realizadas nos equipamentos.  
+Manter um histórico preciso é essencial para garantir a segurança, eficiência e confiabilidade do sistema.  
+
+Ao abrir uma nova manutenção, o equipamento terá seu status alterado para **'Em Manutenção'**. 
+Ao finalizar, o status retornará para **'Ativo'**.  
+Esses registros ajudam a monitorar o tempo gasto em cada atendimento e melhoram nossos relatórios de gestão.
+""")
 
     # -------- Abrir nova manutenção --------
     st.subheader("Abrir nova manutenção")
@@ -102,14 +114,14 @@ elif pagina == "Registrar Manutenção":
 
     if equipamentos_data:
         equipamento_dict = {e['nome']: e['id'] for e in equipamentos_data}
-        nomes_equipamentos = ["-- Selecione um equipamento --"] + list(equipamento_dict.keys())
-        equipamento_nome = st.selectbox("Selecione o equipamento", nomes_equipamentos, index=0)
+        nomes_equipamentos = ["--"] + list(equipamento_dict.keys())
+        equipamento_nome = st.selectbox("--", nomes_equipamentos, index=0)
 
-        tipo = st.selectbox("Tipo de manutenção", ["-- Selecione o tipo --", "Preventiva", "Corretiva"], index=0)
+        tipo = st.selectbox("Tipo de manutenção", ["--", "Preventiva", "Corretiva"], index=0)
         descricao = st.text_area("Descrição da manutenção")
 
         if st.button("Abrir Manutenção"):
-            if equipamento_nome == "-- Selecione --" or tipo == "-- Selecione o tipo --":
+            if equipamento_nome == "--" or tipo == "--":
                 st.warning("Escolha um equipamento e um tipo de manutenção antes de registrar.")
             elif not descricao:
                 st.error("Preencha a descrição da manutenção!")
@@ -118,13 +130,12 @@ elif pagina == "Registrar Manutenção":
                 resp = supabase.table("manutencoes").insert({
                     "equipamento_id": equipamento_id,
                     "tipo": tipo,
-                    "data_inicio": str(pd.Timestamp.today().date()),
-                    "data_fim": None,
                     "descricao": descricao,
+                    "data_inicio": datetime.now().isoformat(),
+                    "data_fim": None,
                     "status": "Em andamento"
                 }).execute()
                 if resp.data:
-                    # Atualizar status do equipamento
                     supabase.table("equipamentos").update({"status": "Em manutenção"}).eq("id", equipamento_id).execute()
                     st.success(f"Manutenção para '{equipamento_nome}' aberta com sucesso!")
                 else:
@@ -145,20 +156,19 @@ elif pagina == "Registrar Manutenção":
             eq_nome = next((e['nome'] for e in equipamentos_data if e['id'] == m['equipamento_id']), "Desconhecido")
             manut_dict[f"{eq_nome} | {m['descricao']}"] = m['id']
 
-        manut_nome = st.selectbox("Selecione a manutenção em andamento", ["-- Selecione --"] + list(manut_dict.keys()), index=0)
-        data_fim = st.date_input("Data de conclusão", pd.Timestamp.today().date())
+        manut_nome = st.selectbox("Selecione a manutenção em andamento", ["--"] + list(manut_dict.keys()), index=0)
 
         if st.button("Finalizar Manutenção"):
-            if manut_nome == "-- Selecione --":
+            if manut_nome == "--":
                 st.warning("Escolha uma manutenção antes de finalizar.")
             else:
                 manut_id = manut_dict[manut_nome]
+                data_fim_completa = datetime.now().isoformat()
                 resp = supabase.table("manutencoes").update({
-                    "data_fim": str(data_fim),
+                    "data_fim": data_fim_completa,
                     "status": "Concluída"
                 }).eq("id", manut_id).execute()
                 if resp.data:
-                    # Atualizar status do equipamento
                     equip_id = next((m['equipamento_id'] for m in manut_data if m['id'] == manut_id), None)
                     if equip_id:
                         supabase.table("equipamentos").update({"status": "Ativo"}).eq("id", equip_id).execute()
@@ -204,8 +214,8 @@ elif pagina == "Dashboard":
         st.markdown("---")
 
         # Filtros
-        setores = ["-- Selecione --"] + list(df_equip['setor'].unique())
-        status_list = ["-- Selecione --"] + list(df_equip['status'].unique())
+        setores = ["--"] + list(df_equip['setor'].unique())
+        status_list = ["--"] + list(df_equip['status'].unique())
         filtro_setor = st.selectbox("Filtrar por setor:", setores, index=0)
         filtro_status = st.selectbox("Filtrar por status:", status_list, index=0)
 
@@ -224,7 +234,7 @@ elif pagina == "Dashboard":
 
         # Manutenções detalhadas
         if not df_manut.empty:
-            equipamentos_options = ["-- Selecione --"] + list(df_equip['nome'])
+            equipamentos_options = ["--"] + list(df_equip['nome'])
             filtro_equip = st.selectbox("Filtrar por equipamento:", equipamentos_options, index=0)
             df_manut_filtrado = df_manut.copy()
             if filtro_equip != "-- Selecione --":
