@@ -14,6 +14,30 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Define tema customizado (cores dos botões, seleção, etc.)
+st.markdown(
+    """
+    <style>
+    /* Botões primários */
+    div.stButton > button:first-child {
+        background-color: #1E90FF;  /* Azul */
+        color: white;
+    }
+    div.stButton > button:hover {
+        background-color: #1C86EE;  /* Azul mais escuro ao passar mouse */
+        color: white;
+    }
+    
+    /* Selectbox, multiselect e sliders */
+    div.stSelectbox > div > div > div > div {
+        color: #000000;  /* texto */
+        background-color: #F0F8FF;  /* fundo azul clarinho */
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # Aplicando CSS para cores de interação azul
 st.markdown("""
     <style>
