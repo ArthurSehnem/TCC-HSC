@@ -93,7 +93,6 @@ def insert_equipment(supabase, nome: str, setor: str, numero_serie: str) -> bool
             "setor": setor.strip(),
             "numero_serie": numero_serie.strip(),
             "status": "Ativo",
-            "created_at": datetime.now().isoformat()
         }).execute()
         return bool(response.data)
     except Exception as e:
@@ -369,7 +368,7 @@ def pagina_dashboard(supabase):
                            color='Tipo', color_discrete_map={"Preventiva":"blue","Corretiva":"red"})
         fig_tipo2.update_yaxes(range=[0,max(df_tipo2['Quantidade'].max()+5,5)])
         st.plotly_chart(fig_tipo2, use_container_width=True)
-        
+
 # -------------------
 # Main
 # -------------------
