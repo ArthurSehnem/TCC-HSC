@@ -275,8 +275,8 @@ def pagina_dashboard(supabase):
     # Cartões em linha
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Total de Equipamentos", total_equip)
-    col2.metric("Ativos", ativos, delta=f"{(ativos/total_equip)*100:.1f}%")
-    col3.metric("Em Manutenção", em_manut, delta=f"{(em_manut/total_equip)*100:.1f}%")
+    col2.metric("Ativos", ativos)
+    col3.metric("Em Manutenção", em_manut)
     col4.metric("Disponibilidade (%)", f"{disponibilidade:.1f}%")
 
     st.markdown("---")
