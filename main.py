@@ -3,8 +3,6 @@ import base64
 from supabase import create_client
 import pandas as pd
 from datetime import datetime
-import plotly.express as px
-import plotly.graph_objects as go
 from typing import Optional, Dict, List, Any
 
 # -------------------
@@ -60,9 +58,8 @@ def show_sidebar():
         index=0
     )
 
-@st.cache_data(ttl=60)  # Cache por 1 minuto
 def fetch_equipamentos(supabase) -> List[Dict]:
-    """Busca equipamentos com cache."""
+    """Busca equipamentos."""
     try:
         response = supabase.table("equipamentos").select("*").execute()
         return response.data if response.data else []
@@ -70,9 +67,8 @@ def fetch_equipamentos(supabase) -> List[Dict]:
         st.error(f"Erro ao carregar equipamentos: {e}")
         return []
 
-@st.cache_data(ttl=60)  # Cache por 1 minuto
 def fetch_manutencoes(supabase) -> List[Dict]:
-    """Busca manutenções com cache."""
+    """Busca manutenções."""
     try:
         response = supabase.table("manutencoes").select("*").execute()
         return response.data if response.data else []
@@ -299,7 +295,7 @@ def pagina_registrar_manutencao(supabase):
                     with st.spinner("Abrindo manutenção..."):
                         if start_maintenance(supabase, equipamento_id, tipo, descricao):
                             st.success(f"✅ Manutenção aberta com sucesso para {equipamento_selecionado}!")
-                            st.cache_data.clear()
+                            st.rerun()
                         else:
                             st.error("❌ Erro ao abrir manutenção.")
     
@@ -339,42 +335,23 @@ def pagina_registrar_manutencao(supabase):
                     with st.spinner("Finalizando manutenção..."):
                         if finish_maintenance(supabase, manut_info['manut_id'], manut_info['equip_id']):
                             st.success("✅ Manutenção finalizada com sucesso!")
-                            st.cache_data.clear()
+                            st.rerun()
                         else:
                             st.error("❌ Erro ao finalizar manutenção.")
 
-def create_plotly_charts(df_equip: pd.DataFrame, df_manut: pd.DataFrame):
-    """Cria gráficos interativos com Plotly."""
+def create_streamlit_charts(df_equip: pd.DataFrame, df_manut: pd.DataFrame):
+    """Cria gráficos usando recursos nativos do Streamlit."""
     charts = {}
     
-    # Gráfico de equipamentos por setor
+    # Dados para gráficos de equipamentos
     if not df_equip.empty:
-        setor_counts = df_equip['setor'].value_counts()
-        charts['setor'] = px.bar(
-            x=setor_counts.index, 
-            y=setor_counts.values,
-            title="Equipamentos por Setor",
-            labels={'x': 'Setor', 'y': 'Quantidade'}
-        )
-        charts['setor'].update_layout(showlegend=False)
-        
-        # Gráfico de status
-        status_counts = df_equip['status'].value_counts()
-        charts['status'] = px.pie(
-            values=status_counts.values,
-            names=status_counts.index,
-            title="Distribuição por Status"
-        )
+        charts['setor_data'] = df_equip['setor'].value_counts()
+        charts['status_data'] = df_equip['status'].value_counts()
     
-    # Gráfico de manutenções
+    # Dados para gráficos de manutenções
     if not df_manut.empty:
-        manut_counts = df_manut['status'].value_counts()
-        charts['manut_status'] = px.bar(
-            x=manut_counts.index,
-            y=manut_counts.values,
-            title="Manutenções por Status",
-            labels={'x': 'Status', 'y': 'Quantidade'}
-        )
+        charts['manut_status_data'] = df_manut['status'].value_counts()
+        charts['manut_tipo_data'] = df_manut['tipo'].value_counts()
     
     return charts
 
