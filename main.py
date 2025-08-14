@@ -247,54 +247,141 @@ def create_streamlit_charts(df_equip, df_manut):
     return charts
 
 def pagina_dashboard(supabase):
+    """Dashboard completo com métricas e gráficos em coluna única."""
     st.header("Dashboard de Equipamentos e Manutenções")
-    df_equip = pd.DataFrame(fetch_equipamentos(supabase))
-    df_manut = pd.DataFrame(fetch_manutencoes(supabase)) if not df_equip.empty else pd.DataFrame()
     
-    if df_equip.empty:
-        st.warning("Nenhum equipamento cadastrado.")
+    # Carrega dados
+    equipamentos_data = supabase.table("equipamentos").select("*").execute().data
+    manutencoes_data = supabase.table("manutencoes").select("*").execute().data
+
+    if not equipamentos_data:
+        st.warning("Nenhum equipamento encontrado. Cadastre equipamentos primeiro.")
         return
+
+    # Transformar em DataFrame
+    df_equip = pd.DataFrame(equipamentos_data)
+    df_manut = pd.DataFrame(manutencoes_data) if manutencoes_data else pd.DataFrame()
+
+    # --------------------------------------
+    # 1 a 4: KPIs principais (cartões)
+    # --------------------------------------
+    st.subheader("Indicadores Principais - Equipamentos")
     
-    # KPIs
-    st.subheader("Indicadores Principais")
     total_equip = len(df_equip)
     ativos = len(df_equip[df_equip['status'] == 'Ativo'])
     em_manut = len(df_equip[df_equip['status'] == 'Em manutenção'])
-    disponibilidade = (ativos / total_equip) * 100
+    disponibilidade = (ativos / total_equip) * 100 if total_equip else 0
+
+    # Cartões em linha
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Total de Equipamentos", total_equip)
     col2.metric("Ativos", ativos, delta=f"{(ativos/total_equip)*100:.1f}%")
     col3.metric("Em Manutenção", em_manut, delta=f"{(em_manut/total_equip)*100:.1f}%")
-    col4.metric("Disponibilidade", f"{disponibilidade:.1f}%")
+    col4.metric("Disponibilidade (%)", f"{disponibilidade:.1f}%")
+
+    st.markdown("---")
     
-    # Manutenções KPIs
+    # --------------------------------------
+    # 5 a 8: KPIs de manutenção (cartões)
+    # --------------------------------------
+    st.subheader("Indicadores de Manutenção")
+    
     if not df_manut.empty:
-        st.subheader("Indicadores de Manutenção")
         total_manut = len(df_manut)
         em_andamento = len(df_manut[df_manut['status'] == 'Em andamento'])
         concluidas = len(df_manut[df_manut['status'] == 'Concluída'])
+        taxa_conclusao = (concluidas / total_manut) * 100 if total_manut else 0
+        
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Total de Manutenções", total_manut)
         col2.metric("Em Andamento", em_andamento)
         col3.metric("Concluídas", concluidas)
-        col4.metric("Taxa de Conclusão", f"{(concluidas/total_manut)*100:.1f}%")
-    
-    # Gráficos empilhados
-    st.subheader("Visualizações")
-    charts = create_streamlit_charts(df_equip, df_manut)
-    if 'setor_data' in charts:
-        st.subheader("Equipamentos por Setor")
-        st.bar_chart(charts['setor_data'])
-    if 'status_data' in charts:
-        st.subheader("Distribuição por Status")
-        st.bar_chart(charts['status_data'])
-    if 'manut_status_data' in charts:
-        st.subheader("Manutenções por Status")
-        st.bar_chart(charts['manut_status_data'])
-    if 'manut_tipo_data' in charts:
-        st.subheader("Manutenções por Tipo")
-        st.bar_chart(charts['manut_tipo_data'])
+        col4.metric("Taxa de Conclusão (%)", f"{taxa_conclusao:.1f}%")
+    else:
+        st.info("Nenhuma manutenção registrada ainda.")
+        total_manut = em_andamento = concluidas = taxa_conclusao = 0
 
+    st.markdown("---")
+    
+    # --------------------------------------
+    # 9: Tempo Médio para Reparo (corretivas concluídas)
+    # --------------------------------------
+    st.subheader("Tempo Médio para Reparo (Corretivas Concluídas)")
+    if not df_manut.empty:
+        df_corretivas = df_manut[(df_manut['tipo'] == 'Corretiva') & (df_manut['status'] == 'Concluída')].copy()
+        if not df_corretivas.empty:
+            df_corretivas['data_inicio'] = pd.to_datetime(df_corretivas['data_inicio'])
+            df_corretivas['data_fim'] = pd.to_datetime(df_corretivas['data_fim'])
+            df_corretivas['duracao'] = (df_corretivas['data_fim'] - df_corretivas['data_inicio']).dt.total_seconds() / 3600  # horas
+            tempo_medio = df_corretivas['duracao'].mean()
+            st.metric("Tempo Médio (horas)", f"{tempo_medio:.1f}")
+        else:
+            st.info("Não há manutenções corretivas concluídas.")
+    else:
+        st.info("Nenhuma manutenção registrada.")
+
+    st.markdown("---")
+    
+    # --------------------------------------
+    # 10: Taxa de Preventiva vs Corretiva
+    # --------------------------------------
+    st.subheader("Taxa de Manutenção Preventiva vs Corretiva")
+    if not df_manut.empty:
+        count_preventiva = len(df_manut[df_manut['tipo'] == 'Preventiva'])
+        count_corretiva = len(df_manut[df_manut['tipo'] == 'Corretiva'])
+        total_tipo = count_preventiva + count_corretiva
+        taxa_preventiva = (count_preventiva / total_tipo) * 100 if total_tipo else 0
+        taxa_corretiva = 100 - taxa_preventiva
+        st.bar_chart(pd.DataFrame({
+            "Tipo": ["Preventiva", "Corretiva"],
+            "Percentual": [taxa_preventiva, taxa_corretiva]
+        }).set_index("Tipo"))
+    else:
+        st.info("Nenhuma manutenção registrada.")
+
+    st.markdown("---")
+    
+    # --------------------------------------
+    # 11: Volume de Manutenções por Período (mensal)
+    # --------------------------------------
+    st.subheader("Volume de Manutenções por Mês")
+    if not df_manut.empty:
+        df_manut['data_inicio'] = pd.to_datetime(df_manut['data_inicio'])
+        manut_por_mes = df_manut.groupby(df_manut['data_inicio'].dt.to_period('M')).size()
+        st.bar_chart(manut_por_mes)
+    else:
+        st.info("Nenhuma manutenção registrada.")
+
+    st.markdown("---")
+    
+    # --------------------------------------
+    # 12: Disponibilidade por Setor
+    # --------------------------------------
+    st.subheader("Disponibilidade por Setor")
+    setores = df_equip['setor'].unique()
+    dispon_por_setor = {}
+    for setor in setores:
+        total_setor = len(df_equip[df_equip['setor'] == setor])
+        ativos_setor = len(df_equip[(df_equip['setor'] == setor) & (df_equip['status'] == 'Ativo')])
+        dispon_por_setor[setor] = (ativos_setor / total_setor) * 100 if total_setor else 0
+    st.bar_chart(pd.Series(dispon_por_setor, name="Disponibilidade (%)"))
+
+    st.markdown("---")
+    
+    # --------------------------------------
+    # 13: Distribuição por Status
+    # --------------------------------------
+    st.subheader("Distribuição de Equipamentos por Status")
+    st.bar_chart(df_equip['status'].value_counts())
+
+    st.markdown("---")
+    
+    # --------------------------------------
+    # 14: Manutenções por Tipo
+    # --------------------------------------
+    st.subheader("Manutenções por Tipo")
+    if not df_manut.empty:
+        st.bar_chart(df_manut['tipo'].value_counts())
 # -------------------
 # Main
 # -------------------
