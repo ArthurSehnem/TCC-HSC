@@ -427,20 +427,39 @@ def pagina_dashboard(supabase):
     if filtro_status != "Todos":
         df_filtrado = df_filtrado[df_filtrado['status'] == filtro_status]
     
-    # Gráficos interativos
+    # Gráficos nativos do Streamlit
     st.subheader("📊 Visualizações")
     
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        if not df_filtrado.empty:
-            charts = create_plotly_charts(df_filtrado, df_manut)
-            if 'setor' in charts:
-                st.plotly_chart(charts['setor'], use_container_width=True)
-    
-    with col2:
-        if not df_filtrado.empty and 'status' in charts:
-            st.plotly_chart(charts['status'], use_container_width=True)
+    if not df_filtrado.empty:
+        charts = create_streamlit_charts(df_filtrado, df_manut)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if 'setor_data' in charts:
+                st.subheader("📊 Equipamentos por Setor")
+                st.bar_chart(charts['setor_data'])
+        
+        with col2:
+            if 'status_data' in charts:
+                st.subheader("📈 Distribuição por Status")
+                st.bar_chart(charts['status_data'])
+        
+        # Gráficos de manutenções
+        if not df_manut.empty:
+            col3, col4 = st.columns(2)
+            
+            with col3:
+                if 'manut_status_data' in charts:
+                    st.subheader("🔧 Manutenções por Status")
+                    st.bar_chart(charts['manut_status_data'])
+            
+            with col4:
+                if 'manut_tipo_data' in charts:
+                    st.subheader("⚙️ Manutenções por Tipo")
+                    st.bar_chart(charts['manut_tipo_data'])
+    else:
+        st.info("Nenhum equipamento encontrado com os filtros aplicados.")
     
     # Tabelas de dados
     with st.expander("📋 Dados Detalhados - Equipamentos", expanded=False):
