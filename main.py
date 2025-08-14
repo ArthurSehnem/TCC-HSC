@@ -342,19 +342,6 @@ def pagina_dashboard(supabase):
     st.markdown("---")
     
     # --------------------------------------
-    # 11: Volume de Manutenções por Período (mensal)
-    # --------------------------------------
-    st.subheader("Volume de Manutenções por Mês")
-    if not df_manut.empty:
-        df_manut['data_inicio'] = pd.to_datetime(df_manut['data_inicio'])
-        manut_por_mes = df_manut.groupby(df_manut['data_inicio'].dt.to_period('M')).size()
-        st.bar_chart(manut_por_mes)
-    else:
-        st.info("Nenhuma manutenção registrada.")
-
-    st.markdown("---")
-    
-    # --------------------------------------
     # 12: Disponibilidade por Setor
     # --------------------------------------
     st.subheader("Disponibilidade por Setor")
