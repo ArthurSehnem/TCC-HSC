@@ -19,7 +19,7 @@ def login():
     st.title("Login - Sistema HSC")
     
     # Logo opcional
-    # st.image("logo.png", width=120)
+    st.image("logo.png", width=120)
     
     # Texto explicativo
     st.info(
@@ -44,7 +44,7 @@ def login():
                 "Email ou senha incorretos.\n"
                 "Se você esqueceu a senha, contate o setor de TI do hospital."
             )
-            
+
 def main():
     if "user" not in st.session_state:
         login()
