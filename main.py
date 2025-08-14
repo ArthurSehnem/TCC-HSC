@@ -15,6 +15,13 @@ import streamlit as st
 ADMIN_EMAIL = st.secrets["login"]["email"]
 ADMIN_PASSWORD = st.secrets["login"]["password"]
 
+def load_logo(path="logo.png"):
+    try:
+        with open(path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    except FileNotFoundError:
+        return None
+
 def login():
     st.title("Acesso ao Sistema HSC")
 
@@ -443,4 +450,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
