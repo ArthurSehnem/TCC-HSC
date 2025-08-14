@@ -19,7 +19,7 @@ def login():
     st.title("Login - Sistema HSC")
     
     # Logo opcional
-    #st.image("logo.png", width=120)
+    st.image("logo.png", width=120)
     
     # Texto explicativo
     st.info(
@@ -49,7 +49,6 @@ def main():
     if "user" not in st.session_state:
         login()
         st.stop()  # impede que o restante do app carregue
-    st.write("Conteúdo protegido do hospital")
 
 if __name__ == "__main__":
     main()
@@ -437,4 +436,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
