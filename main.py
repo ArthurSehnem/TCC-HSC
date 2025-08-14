@@ -4,8 +4,8 @@ from supabase import create_client
 import pandas as pd
 
 # Conexão com o Supabase
-url = "https://kksuykamygfpwqcyswum.supabase.co"
-key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtrc3V5a2FteWdmcHdxY3lzd3VtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxOTAzNjAsImV4cCI6MjA3MDc2NjM2MH0.NwjTHIe0aknCfBZ7lL7CRkyzBTOY3J4ST1fBt1YvzCY"
+url = st.secrets["SUPABASE_URL"]
+key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
 # Caminho relativo para o logo (mesmo diretório do main.py)
@@ -221,4 +221,5 @@ elif pagina == "Dashboard":
     else:
 
         st.info("Nenhum equipamento encontrado.")
+
 
