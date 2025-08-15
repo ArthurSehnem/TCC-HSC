@@ -334,10 +334,10 @@ def create_streamlit_charts(df_equip, df_manut):
     return charts
 
 def pagina_dashboard(supabase):
-    """Dashboard completo com métricas e gráficos em coluna única usando Plotly."""
+    """Dashboard completo com métricas, gráficos e análises detalhadas."""
     st.header("Dashboard de Equipamentos e Manutenções")
     
-    # Carrega dados
+    # Carregar dados
     equipamentos_data = supabase.table("equipamentos").select("*").execute().data
     manutencoes_data = supabase.table("manutencoes").select("*").execute().data
 
@@ -345,12 +345,11 @@ def pagina_dashboard(supabase):
         st.warning("Nenhum equipamento encontrado. Cadastre equipamentos primeiro.")
         return
 
-    # Transformar em DataFrame
     df_equip = pd.DataFrame(equipamentos_data)
     df_manut = pd.DataFrame(manutencoes_data) if manutencoes_data else pd.DataFrame()
 
     # --------------------------------------
-    # 1 a 4: KPIs principais (cartões)
+    # 1️⃣ KPIs principais - Equipamentos
     # --------------------------------------
     st.subheader("Indicadores Principais - Equipamentos")
     total_equip = len(df_equip)
@@ -365,63 +364,40 @@ def pagina_dashboard(supabase):
     st.markdown("---")
 
     # --------------------------------------
-    # 5 a 8: KPIs de manutenção (cartões)
+    # 2️⃣ TMA - Tempo Médio de Atendimento em dias
     # --------------------------------------
-    st.subheader("Indicadores de Manutenção")
+    st.subheader("Tempo Médio de Atendimento (TMA) em dias")
     if not df_manut.empty:
-        total_manut = len(df_manut)
-        em_andamento = len(df_manut[df_manut['status'] == 'Em andamento'])
-        concluidas = len(df_manut[df_manut['status'] == 'Concluída'])
-        taxa_conclusao = (concluidas / total_manut) * 100 if total_manut else 0
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Total de Manutenções", total_manut)
-        col2.metric("Em Andamento", em_andamento)
-        col3.metric("Concluídas", concluidas)
-        col4.metric("Taxa de Conclusão (%)", f"{taxa_conclusao:.1f}%")
-    else:
-        st.info("Nenhuma manutenção registrada ainda.")
-        total_manut = em_andamento = concluidas = taxa_conclusao = 0
-    st.markdown("---")
-
-    # --------------------------------------
-    # 9: Tempo Médio para Reparo (Corretivas Concluídas)
-    # --------------------------------------
-    st.subheader("Tempo Médio para Reparo (Corretivas Concluídas)")
-    if not df_manut.empty:
-        df_corretivas = df_manut[(df_manut['tipo']=='Corretiva') & (df_manut['status']=='Concluída')].copy()
-        if not df_corretivas.empty:
-            df_corretivas['data_inicio'] = pd.to_datetime(df_corretivas['data_inicio'])
-            df_corretivas['data_fim'] = pd.to_datetime(df_corretivas['data_fim'])
-            df_corretivas['duracao'] = (df_corretivas['data_fim'] - df_corretivas['data_inicio']).dt.total_seconds()/3600
-            tempo_medio = df_corretivas['duracao'].mean()
-            st.metric("Tempo Médio (horas)", f"{tempo_medio:.1f}")
+        df_concluidas = df_manut[df_manut['status'] == 'Concluída'].copy()
+        if not df_concluidas.empty:
+            df_concluidas['data_inicio'] = pd.to_datetime(df_concluidas['data_inicio'])
+            df_concluidas['data_fim'] = pd.to_datetime(df_concluidas['data_fim'])
+            df_concluidas['duracao_dias'] = (df_concluidas['data_fim'] - df_concluidas['data_inicio']).dt.total_seconds() / 86400
+            tma = df_concluidas['duracao_dias'].mean()
+            st.metric("TMA (dias)", f"{tma:.1f}")
         else:
-            st.info("Não há manutenções corretivas concluídas.")
+            st.info("Não há manutenções concluídas para calcular TMA.")
     else:
         st.info("Nenhuma manutenção registrada.")
     st.markdown("---")
 
     # --------------------------------------
-    # 10: Taxa de Preventiva vs Corretiva
+    # 3️⃣ Quantidade de atendimentos por tipo
     # --------------------------------------
-    st.subheader("Taxa de Manutenção Preventiva vs Corretiva")
+    st.subheader("Quantidade de Atendimentos por Tipo")
     if not df_manut.empty:
-        count_preventiva = len(df_manut[df_manut['tipo']=='Preventiva'])
-        count_corretiva = len(df_manut[df_manut['tipo']=='Corretiva'])
-        df_tipo = pd.DataFrame({
-            "Tipo": ["Preventiva","Corretiva"],
-            "Quantidade": [count_preventiva, count_corretiva]
-        })
-        fig_tipo = px.bar(df_tipo, x='Tipo', y='Quantidade', text='Quantidade', 
-                          color='Tipo', color_discrete_map={"Preventiva":"blue","Corretiva":"red"})
-        fig_tipo.update_yaxes(range=[0, max(df_tipo['Quantidade'].max()+5, 5)])
+        df_tipo_count = df_manut['tipo'].value_counts().reset_index()
+        df_tipo_count.columns = ['Tipo', 'Quantidade']
+        fig_tipo = px.bar(df_tipo_count, x='Tipo', y='Quantidade', text='Quantidade',
+                          color='Tipo', color_discrete_sequence=px.colors.qualitative.Set2)
+        fig_tipo.update_yaxes(range=[0, max(df_tipo_count['Quantidade'].max()+5, 5)])
         st.plotly_chart(fig_tipo, use_container_width=True)
     else:
         st.info("Nenhuma manutenção registrada.")
     st.markdown("---")
 
     # --------------------------------------
-    # 12: Disponibilidade por Setor
+    # 4️⃣ Disponibilidade por setor
     # --------------------------------------
     st.subheader("Disponibilidade por Setor")
     dispon_por_setor = {}
@@ -430,35 +406,48 @@ def pagina_dashboard(supabase):
         ativos_setor = len(df_equip[(df_equip['setor']==setor) & (df_equip['status']=='Ativo')])
         dispon_por_setor[setor] = (ativos_setor/total_setor)*100 if total_setor else 0
     df_dispon = pd.DataFrame({"Setor": list(dispon_por_setor.keys()), "Disponibilidade": list(dispon_por_setor.values())})
-    fig_dispon = px.bar(df_dispon, x='Setor', y='Disponibilidade', text='Disponibilidade', 
+    fig_dispon = px.bar(df_dispon, x='Setor', y='Disponibilidade', text='Disponibilidade',
                         labels={'Disponibilidade':'%'}, title="Disponibilidade por Setor")
     fig_dispon.update_yaxes(range=[0,100])
     st.plotly_chart(fig_dispon, use_container_width=True)
     st.markdown("---")
 
     # --------------------------------------
-    # 13: Distribuição por Status
+    # 5️⃣ Manutenções por mês (MoM)
     # --------------------------------------
-    st.subheader("Distribuição de Equipamentos por Status")
-    df_status = df_equip['status'].value_counts().reset_index()
-    df_status.columns = ['Status','Quantidade']
-    fig_status = px.bar(df_status, x='Status', y='Quantidade', text='Quantidade', 
-                        color='Status', color_discrete_map={"Ativo":"green","Em manutenção":"orange"})
-    fig_status.update_yaxes(range=[0, max(df_status['Quantidade'].max()+5,5)])
-    st.plotly_chart(fig_status, use_container_width=True)
+    st.subheader("Manutenções por Mês (MoM)")
+    if not df_manut.empty:
+        df_manut['data_inicio'] = pd.to_datetime(df_manut['data_inicio'])
+        df_manut['mes_ano'] = df_manut['data_inicio'].dt.to_period('M')
+        df_mes = df_manut.groupby(['mes_ano', 'tipo']).size().reset_index(name='Quantidade')
+        fig_mom = px.bar(df_mes, x='mes_ano', y='Quantidade', color='tipo', barmode='group',
+                         labels={'mes_ano':'Mês/Ano', 'Quantidade':'Atendimentos', 'tipo':'Tipo'})
+        st.plotly_chart(fig_mom, use_container_width=True)
+    else:
+        st.info("Nenhuma manutenção registrada.")
     st.markdown("---")
 
     # --------------------------------------
-    # 14: Manutenções por Tipo
+    # 6️⃣ Analítico dos Equipamentos
     # --------------------------------------
-    st.subheader("Manutenções por Tipo")
+    st.subheader("Analítico dos Equipamentos")
+    st.dataframe(df_equip.sort_values(['status','setor','nome']), use_container_width=True)
+    st.markdown("---")
+
+    # --------------------------------------
+    # 7️⃣ Analítico das Manutenções
+    # --------------------------------------
+    st.subheader("Analítico das Manutenções")
     if not df_manut.empty:
-        df_tipo2 = df_manut['tipo'].value_counts().reset_index()
-        df_tipo2.columns = ['Tipo','Quantidade']
-        fig_tipo2 = px.bar(df_tipo2, x='Tipo', y='Quantidade', text='Quantidade',
-                           color='Tipo', color_discrete_map={"Preventiva":"blue","Corretiva":"red"})
-        fig_tipo2.update_yaxes(range=[0,max(df_tipo2['Quantidade'].max()+5,5)])
-        st.plotly_chart(fig_tipo2, use_container_width=True)
+        df_manut_analiatico = df_manut.copy()
+        df_manut_analitico['data_inicio'] = pd.to_datetime(df_manut_analitico['data_inicio'])
+        df_manut_analitico['data_fim'] = pd.to_datetime(df_manut_analitico['data_fim'])
+        df_manut_analitico['duracao_dias'] = ((df_manut_analitico['data_fim'] - df_manut_analitico['data_inicio']).dt.total_seconds()/86400).fillna(0)
+        df_manut_analitico = df_manut_analitico.merge(df_equip[['id','nome','setor']], left_on='equipamento_id', right_on='id', how='left')
+        df_manut_analitico = df_manut_analitico.rename(columns={'nome':'Equipamento','setor':'Setor'})
+        st.dataframe(df_manut_analitico[['Equipamento','Setor','tipo','descricao','status','data_inicio','data_fim','duracao_dias']], use_container_width=True)
+    else:
+        st.info("Nenhuma manutenção registrada.")
 
 # -------------------
 # Main
