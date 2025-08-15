@@ -267,7 +267,8 @@ def pagina_registrar_manutencao(supabase):
                     if start_maintenance(supabase, equipamento_id, tipo, descricao):
                         st.success(f"Manutenção aberta com sucesso para {equipamento_selecionado}!")
                         st.balloons()
-                        st.rerun()
+                        st.session_state["form_abrir_manutencao_submitted"] = False  # limpa o estado do form
+
                     else:
                         st.error("Erro ao abrir manutenção.")
     
