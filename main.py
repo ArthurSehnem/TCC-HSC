@@ -434,45 +434,27 @@ def pagina_dashboard(supabase):
     st.markdown("---")
 
     # --------------------------------------
-# 6️⃣ Analítico dos Equipamentos
-# --------------------------------------
-st.subheader("Analítico dos Equipamentos")
+    # 6️⃣ Analítico dos Equipamentos
+    # --------------------------------------
+    st.subheader("Analítico dos Equipamentos")
+    st.dataframe(df_equip.sort_values(['status','setor','nome']), use_container_width=True)
+    st.markdown("---")
 
-# Colunas que queremos exibir
-colunas_equip = ['nome', 'setor', 'numero_serie', 'status']
-
-# Filtrando e ordenando
-df_equip_exibir = df_equip[colunas_equip].sort_values(['status', 'setor', 'nome'])
-
-st.dataframe(df_equip_exibir, use_container_width=True)
-st.markdown("---")
-
-# --------------------------------------
-# 7️⃣ Analítico das Manutenções
-# --------------------------------------
-st.subheader("Analítico das Manutenções")
-
-if not df_manut.empty:
-    df_manut_analitico = df_manut.copy()
-    df_manut_analitico['data_inicio'] = pd.to_datetime(df_manut_analitico['data_inicio'])
-    df_manut_analitico['data_fim'] = pd.to_datetime(df_manut_analitico['data_fim'])
+    # --------------------------------------
+    # 7️⃣ Analítico das Manutenções
+    # --------------------------------------
+    st.subheader("Analítico das Manutenções")
+    if not df_manut.empty:
+        df_manut_analitico = df_manut.copy()
+        df_manut_analitico['data_inicio'] = pd.to_datetime(df_manut_analitico['data_inicio'])
+        df_manut_analitico['data_fim'] = pd.to_datetime(df_manut_analitico['data_fim'])
     
-    # Criar coluna de duração em horas
-    df_manut_analitico['duracao_horas'] = (
-        df_manut_analitico['data_fim'] - df_manut_analitico['data_inicio']
-    ).dt.total_seconds() / 3600
-
-    # Mapear nome do equipamento pelo ID
-    equipamentos_dict = {e['id']: e['nome'] for e in equipamentos_data}
-    df_manut_analitico['nome_equipamento'] = df_manut_analitico['equipamento_id'].map(equipamentos_dict)
-
-    # Colunas que queremos exibir
-    colunas_manut = ['nome_equipamento', 'tipo', 'data_inicio', 'data_fim', 'descricao', 'status', 'duracao_horas']
-
-    st.dataframe(df_manut_analitico[colunas_manut], use_container_width=True)
-else:
-    st.info("Nenhuma manutenção registrada para análise.")
-
+        # Criar coluna de duração em horas
+        df_manut_analitico['duracao_horas'] = (df_manut_analitico['data_fim'] - df_manut_analitico['data_inicio']).dt.total_seconds()/3600
+    
+        st.dataframe(df_manut_analitico)
+    else:
+        st.info("Nenhuma manutenção registrada para análise.")
 
 # -------------------
 # Main
