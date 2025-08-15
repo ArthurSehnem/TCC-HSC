@@ -385,6 +385,28 @@ def pagina_dashboard(supabase):
     st.markdown("---")
 
     # --------------------------------------
+    # 5 a 8: KPIs de manutenção (cartões)
+    # --------------------------------------
+    st.subheader("Indicadores de Manutenção")
+
+    if not df_manut.empty:
+        total_manut = len(df_manut)
+        em_andamento = len(df_manut[df_manut['status'] == 'Em andamento'])
+        concluidas = len(df_manut[df_manut['status'] == 'Concluída'])
+        taxa_conclusao = (concluidas / total_manut) * 100 if total_manut else 0
+
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Total de Manutenções", total_manut)
+        col2.metric("Em Andamento", em_andamento)
+        col3.metric("Concluídas", concluidas)
+        col4.metric("Taxa de Conclusão (%)", f"{taxa_conclusao:.1f}%")
+    else:
+        st.info("Nenhuma manutenção registrada ainda.")
+        total_manut = em_andamento = concluidas = taxa_conclusao = 0
+
+    st.markdown("---")
+
+    # --------------------------------------
     # 2️⃣ TMA - Tempo Médio de Atendimento em dias
     # --------------------------------------
     st.subheader("Tempo Médio de Atendimento (TMA) em dias")
