@@ -220,10 +220,11 @@ def pagina_adicionar_equipamento(supabase):
             setores_padrao + ["Outro"]
         )
 
-        # Se escolher "Outro", mostrar campo de texto
+        setor_final = None
         if setor_escolhido == "Outro":
             setor_custom = st.text_input("Digite o nome do setor")
-            setor_final = setor_custom.strip().title() if setor_custom else None
+            if setor_custom.strip():
+                setor_final = setor_custom.strip().title()
         else:
             setor_final = setor_escolhido
 
@@ -232,16 +233,19 @@ def pagina_adicionar_equipamento(supabase):
         submitted = st.form_submit_button("Cadastrar Equipamento")
 
     if submitted:
-        error = validate_equipment_data(nome, setor_final, numero_serie)
-        if error:
-            st.error(error)
+        if not setor_final:
+            st.error("Por favor, selecione ou informe um setor.")
         else:
-            if insert_equipment(supabase, nome, setor_final, numero_serie):
-                st.success(f"Equipamento '{nome}' cadastrado com sucesso!")
-                st.balloons()
-                st.cache_data.clear()
+            error = validate_equipment_data(nome, setor_final, numero_serie)
+            if error:
+                st.error(error)
             else:
-                st.error("Erro ao cadastrar equipamento.")
+                if insert_equipment(supabase, nome, setor_final, numero_serie):
+                    st.success(f"Equipamento '{nome}' cadastrado com sucesso!")
+                    st.balloons()
+                    st.cache_data.clear()
+                else:
+                    st.error("Erro ao cadastrar equipamento.")
 
 def pagina_registrar_manutencao(supabase):
     st.header("Registrar Manutenção")
