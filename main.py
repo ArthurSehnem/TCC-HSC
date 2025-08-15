@@ -7,8 +7,6 @@ from typing import Optional, Dict, List
 import plotly.express as px
 import plotly.graph_objects as go
 
-import streamlit as st
-
 # -------------------
 # Login único
 # -------------------
@@ -93,7 +91,7 @@ def show_sidebar():
     st.sidebar.markdown("---")
     return st.sidebar.radio(
         "Navegação",
-        ["Página Inicial", "Adicionar Equipamento", "Registrar Manutenção", "Dashboard"],
+        ["Página Inicial", "Equipamentos", "Manutenções", "Dashboard"],
         index=0
     )
 
@@ -469,9 +467,9 @@ def main():
     pagina = show_sidebar()
     if pagina == "Página Inicial":
         pagina_inicial()
-    elif pagina == "Adicionar Equipamento":
+    elif pagina == "Equipamentos":
         pagina_adicionar_equipamento(supabase)
-    elif pagina == "Registrar Manutenção":
+    elif pagina == "Manutenções":
         pagina_registrar_manutencao(supabase)
     elif pagina == "Dashboard":
         pagina_dashboard(supabase)
