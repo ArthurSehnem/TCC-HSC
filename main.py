@@ -197,72 +197,73 @@ Tornar a gestão de equipamentos **mais eficiente, segura e transparente** para 
     st.info(""" 💡 **Dica de Navegação** Use a sidebar à esquerda para navegar entre as funcionalidades do sistema. Cada seção foi otimizada para facilitar seu trabalho diário.""")
 
 def pagina_adicionar_equipamento(supabase):
-    st.header("Adicionar Novo Equipamento")
+    st.header("Equipamentos")
 
-    # ------------------- Instruções -------------------
-    with st.expander("Instruções", expanded=False):
-        st.markdown("""
-        - Todos os campos são obrigatórios
-        - Número de série deve ser único
-        - Equipamentos criados com status 'Ativo' por padrão
-        - É possível inativar ou reativar equipamentos cadastrados
-        """)
+    tab1, tab2 = st.tabs(["Cadastrar Equipamento", "Gerenciar Status"])
 
-    # ------------------- Cadastro de equipamento -------------------
-    setores_padrao = ["Hemodiálise", "Lavanderia", "Instrumentais Cirúrgicos"]
-    setor_escolhido = st.selectbox("Selecione o setor", setores_padrao + ["Outro"])
+    # ------------------- Aba 1: Cadastrar Equipamento -------------------
+    with tab1:
+        with st.expander("Instruções", expanded=False):
+            st.markdown("""
+            - Todos os campos são obrigatórios
+            - Número de série deve ser único
+            - Equipamentos criados com status 'Ativo' por padrão
+            """)
 
-    setor_final = setor_escolhido
-    if setor_escolhido == "Outro":
-        setor_custom = st.text_input("Digite o nome do setor")
-        if setor_custom.strip():
-            setor_final = setor_custom.strip().title()
-        else:
-            setor_final = None
+        setores_padrao = ["Hemodiálise", "Lavanderia", "Instrumentais Cirúrgicos"]
+        setor_escolhido = st.selectbox("Selecione o setor", setores_padrao + ["Outro"])
 
-    with st.form("form_equipamento", clear_on_submit=True):
-        nome = st.text_input("Nome do equipamento *", placeholder="Ex: Respirador ABC-123")
-        numero_serie = st.text_input("Número de Série *", placeholder="Ex: SN123456789")
-        submitted = st.form_submit_button("Cadastrar Equipamento")
-
-    if submitted:
-        if not setor_final:
-            st.error("Por favor, selecione ou informe um setor.")
-        else:
-            error = validate_equipment_data(nome, setor_final, numero_serie)
-            if error:
-                st.error(error)
+        setor_final = setor_escolhido
+        if setor_escolhido == "Outro":
+            setor_custom = st.text_input("Digite o nome do setor")
+            if setor_custom.strip():
+                setor_final = setor_custom.strip().title()
             else:
-                if insert_equipment(supabase, nome, setor_final, numero_serie):
-                    st.success(f"Equipamento '{nome}' cadastrado com sucesso!")
-                    st.balloons()
-                    st.cache_data.clear()
+                setor_final = None
+
+        with st.form("form_equipamento", clear_on_submit=True):
+            nome = st.text_input("Nome do equipamento *", placeholder="Ex: Respirador ABC-123")
+            numero_serie = st.text_input("Número de Série *", placeholder="Ex: SN123456789")
+            submitted = st.form_submit_button("Cadastrar Equipamento")
+
+        if submitted:
+            if not setor_final:
+                st.error("Por favor, selecione ou informe um setor.")
+            else:
+                error = validate_equipment_data(nome, setor_final, numero_serie)
+                if error:
+                    st.error(error)
                 else:
-                    st.error("Erro ao cadastrar equipamento.")
+                    if insert_equipment(supabase, nome, setor_final, numero_serie):
+                        st.success(f"Equipamento '{nome}' cadastrado com sucesso!")
+                        st.balloons()
+                        st.cache_data.clear()
+                    else:
+                        st.error("Erro ao cadastrar equipamento.")
 
-    st.markdown("---")
+    # ------------------- Aba 2: Gerenciar Status -------------------
+    with tab2:
+        st.subheader("Alterar Status dos Equipamentos")
+        equipamentos_data = fetch_equipamentos(supabase)
 
-    # ------------------- Gerenciamento de status -------------------
-    st.subheader("Gerenciar Status dos Equipamentos")
-    equipamentos_data = fetch_equipamentos(supabase)
-    if equipamentos_data:
-        equipamento_dict = {f"{e['nome']} - {e['setor']} ({e['status']})": e['id'] for e in equipamentos_data}
-        equipamento_selecionado = st.selectbox("Selecione um equipamento", [""] + list(equipamento_dict.keys()))
-        
-        if equipamento_selecionado:
-            equip_id = equipamento_dict[equipamento_selecionado]
-            status_atual = next(e['status'] for e in equipamentos_data if e['id'] == equip_id)
-            novo_status = "Inativo" if status_atual == "Ativo" else "Ativo"
-            
-            if st.button(f"Alterar para {novo_status}"):
-                try:
-                    supabase.table("equipamentos").update({"status": novo_status}).eq("id", equip_id).execute()
-                    st.success(f"Equipamento alterado para {novo_status}")
-                    st.cache_data.clear()
-                except Exception as e:
-                    st.error(f"Erro ao atualizar status: {e}")
-    else:
-        st.info("Nenhum equipamento cadastrado ainda.")
+        if equipamentos_data:
+            equipamento_dict = {f"{e['nome']} - {e['setor']} ({e['status']})": e['id'] for e in equipamentos_data}
+            equipamento_selecionado = st.selectbox("Selecione um equipamento", [""] + list(equipamento_dict.keys()))
+
+            if equipamento_selecionado:
+                equip_id = equipamento_dict[equipamento_selecionado]
+                status_atual = next(e['status'] for e in equipamentos_data if e['id'] == equip_id)
+                novo_status = "Inativo" if status_atual == "Ativo" else "Ativo"
+
+                if st.button(f"Alterar para {novo_status}"):
+                    try:
+                        supabase.table("equipamentos").update({"status": novo_status}).eq("id", equip_id).execute()
+                        st.success(f"Equipamento alterado para {novo_status}")
+                        st.cache_data.clear()
+                    except Exception as e:
+                        st.error(f"Erro ao atualizar status: {e}")
+        else:
+            st.info("Nenhum equipamento cadastrado ainda.")
 
 
 def pagina_registrar_manutencao(supabase):
