@@ -19,7 +19,7 @@ def login():
     st.title("Login - Sistema HSC")
     
     # Logo opcional
-    #st.image("logo.png", width=120)
+    st.image("logo.png", width=120)
     
     # Texto explicativo
     st.info(
@@ -210,9 +210,23 @@ def pagina_adicionar_equipamento(supabase):
     
     with st.form("form_equipamento", clear_on_submit=True):
         nome = st.text_input("Nome do equipamento *", placeholder="Ex: Respirador ABC-123")
-        setor = st.text_input("Setor *", placeholder="Ex: UTI, Centro Cirúrgico")
+    # Lista padrão de setores
+    setores_padrao = ["Hemodiálise", "Lavanderia", "Instrumentais Cirúrgicos"]
+
+    # Campo de seleção
+    setor_escolhido = st.selectbox(
+        "Selecione o setor",
+        setores_padrao + ["Outro"]
+      )
+
+    # Se escolher "Outro", mostrar campo de texto
+    if setor_escolhido == "Outro":
+        setor_custom = st.text_input("Digite o nome do setor")
+        setor_final = setor_custom.strip().title() if setor_custom else None
+    else:
+        setor_final = setor_escolhido        
         numero_serie = st.text_input("Número de Série *", placeholder="Ex: SN123456789")
-        
+
         submitted = st.form_submit_button("Cadastrar Equipamento")
         if submitted:
             error = validate_equipment_data(nome, setor, numero_serie)
@@ -436,4 +450,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
