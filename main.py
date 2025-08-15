@@ -424,15 +424,16 @@ def pagina_dashboard(supabase):
     # --------------------------------------
     st.subheader("Analítico das Manutenções")
     if not df_manut.empty:
-        df_manut_analiatico = df_manut.copy()
+        df_manut_analitico = df_manut.copy()
         df_manut_analitico['data_inicio'] = pd.to_datetime(df_manut_analitico['data_inicio'])
         df_manut_analitico['data_fim'] = pd.to_datetime(df_manut_analitico['data_fim'])
-        df_manut_analitico['duracao_dias'] = ((df_manut_analitico['data_fim'] - df_manut_analitico['data_inicio']).dt.total_seconds()/86400).fillna(0)
-        df_manut_analitico = df_manut_analitico.merge(df_equip[['id','nome','setor']], left_on='equipamento_id', right_on='id', how='left')
-        df_manut_analitico = df_manut_analitico.rename(columns={'nome':'Equipamento','setor':'Setor'})
-        st.dataframe(df_manut_analitico[['Equipamento','Setor','tipo','descricao','status','data_inicio','data_fim','duracao_dias']], use_container_width=True)
+    
+        # Criar coluna de duração em horas
+        df_manut_analitico['duracao_horas'] = (df_manut_analitico['data_fim'] - df_manut_analitico['data_inicio']).dt.total_seconds()/3600
+    
+        st.dataframe(df_manut_analitico)
     else:
-        st.info("Nenhuma manutenção registrada.")
+        st.info("Nenhuma manutenção registrada para análise.")
 
 # -------------------
 # Main
