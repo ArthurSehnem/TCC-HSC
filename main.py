@@ -207,38 +207,41 @@ def pagina_adicionar_equipamento(supabase):
         - Número de série deve ser único
         - Equipamentos criados com status 'Ativo' por padrão
         """)
-    
+
     with st.form("form_equipamento", clear_on_submit=True):
         nome = st.text_input("Nome do equipamento *", placeholder="Ex: Respirador ABC-123")
-    # Lista padrão de setores
-    setores_padrao = ["Hemodiálise", "Lavanderia", "Instrumentais Cirúrgicos"]
 
-    # Campo de seleção
-    setor_escolhido = st.selectbox(
-        "Selecione o setor",
-        setores_padrao + ["Outro"]
-      )
+        # Lista padrão de setores
+        setores_padrao = ["Hemodiálise", "Lavanderia", "Instrumentais Cirúrgicos"]
 
-    # Se escolher "Outro", mostrar campo de texto
-    if setor_escolhido == "Outro":
-        setor_custom = st.text_input("Digite o nome do setor")
-        setor_final = setor_custom.strip().title() if setor_custom else None
-    else:
-        setor_final = setor_escolhido        
+        # Campo de seleção
+        setor_escolhido = st.selectbox(
+            "Selecione o setor",
+            setores_padrao + ["Outro"]
+        )
+
+        # Se escolher "Outro", mostrar campo de texto
+        if setor_escolhido == "Outro":
+            setor_custom = st.text_input("Digite o nome do setor")
+            setor_final = setor_custom.strip().title() if setor_custom else None
+        else:
+            setor_final = setor_escolhido
+
         numero_serie = st.text_input("Número de Série *", placeholder="Ex: SN123456789")
 
         submitted = st.form_submit_button("Cadastrar Equipamento")
-        if submitted:
-            error = validate_equipment_data(nome, setor, numero_serie)
-            if error:
-                st.error(error)
+
+    if submitted:
+        error = validate_equipment_data(nome, setor_final, numero_serie)
+        if error:
+            st.error(error)
+        else:
+            if insert_equipment(supabase, nome, setor_final, numero_serie):
+                st.success(f"Equipamento '{nome}' cadastrado com sucesso!")
+                st.balloons()
+                st.cache_data.clear()
             else:
-                if insert_equipment(supabase, nome, setor, numero_serie):
-                    st.success(f"Equipamento '{nome}' cadastrado com sucesso!")
-                    st.balloons()
-                    st.cache_data.clear()
-                else:
-                    st.error("Erro ao cadastrar equipamento.")
+                st.error("Erro ao cadastrar equipamento.")
 
 def pagina_registrar_manutencao(supabase):
     st.header("Registrar Manutenção")
