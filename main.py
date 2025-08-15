@@ -419,22 +419,13 @@ def pagina_dashboard(supabase):
     if not df_manut.empty:
         df_manut['data_inicio'] = pd.to_datetime(df_manut['data_inicio'])
         df_manut['mes_ano'] = df_manut['data_inicio'].dt.to_period('M')
-
-        # Converter Period para string YYYY-MM
-        df_manut['mes_ano_str'] = df_manut['mes_ano'].astype(str)
-
-        df_mes = df_manut.groupby(['mes_ano_str', 'tipo']).size().reset_index(name='Quantidade')
-        fig_mom = px.bar(
-        df_mes,
-        x='mes_ano_str',
-        y='Quantidade',
-        color='tipo',
-        barmode='group',
-        labels={'mes_ano_str':'Mês/Ano', 'Quantidade':'Atendimentos', 'tipo':'Tipo'}
-    )
+        df_mes = df_manut.groupby(['mes_ano', 'tipo']).size().reset_index(name='Quantidade')
+        fig_mom = px.bar(df_mes, x='mes_ano', y='Quantidade', color='tipo', barmode='group',
+                         labels={'mes_ano':'Mês/Ano', 'Quantidade':'Atendimentos', 'tipo':'Tipo'})
         st.plotly_chart(fig_mom, use_container_width=True)
     else:
         st.info("Nenhuma manutenção registrada.")
+    st.markdown("---")
 
     # --------------------------------------
     # 6️⃣ Analítico dos Equipamentos
@@ -478,4 +469,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
