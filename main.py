@@ -17,10 +17,7 @@ ADMIN_PASSWORD = st.secrets["login"]["password"]
 
 def login():
     st.title("Login - Sistema HSC")
-    
-    # Logo opcional
-    st.image("logo.png", width=120)
-    
+        
     # Texto explicativo
     st.info(
         """
