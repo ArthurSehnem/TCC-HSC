@@ -205,28 +205,27 @@ def pagina_adicionar_equipamento(supabase):
         - Equipamentos criados com status 'Ativo' por padrão
         """)
 
+    # Lista padrão de setores
+    setores_padrao = ["Hemodiálise", "Lavanderia", "Instrumentais Cirúrgicos"]
+
+    # Campo de seleção fora do form para reatividade
+    setor_escolhido = st.selectbox(
+        "Selecione o setor",
+        setores_padrao + ["Outro"]
+    )
+
+    # Se escolher "Outro", mostrar campo de texto
+    setor_final = setor_escolhido
+    if setor_escolhido == "Outro":
+        setor_custom = st.text_input("Digite o nome do setor")
+        if setor_custom.strip():
+            setor_final = setor_custom.strip().title()
+        else:
+            setor_final = None
+
     with st.form("form_equipamento", clear_on_submit=True):
         nome = st.text_input("Nome do equipamento *", placeholder="Ex: Respirador ABC-123")
-
-        # Lista padrão de setores
-        setores_padrao = ["Hemodiálise", "Lavanderia", "Instrumentais Cirúrgicos"]
-
-        # Campo de seleção
-        setor_escolhido = st.selectbox(
-            "Selecione o setor",
-            setores_padrao + ["Outro"]
-        )
-
-        setor_final = None
-        if setor_escolhido == "Outro":
-            setor_custom = st.text_input("Digite o nome do setor")
-            if setor_custom.strip():
-                setor_final = setor_custom.strip().title()
-        else:
-            setor_final = setor_escolhido
-
         numero_serie = st.text_input("Número de Série *", placeholder="Ex: SN123456789")
-
         submitted = st.form_submit_button("Cadastrar Equipamento")
 
     if submitted:
