@@ -197,7 +197,7 @@ Tornar a gestão de equipamentos **mais eficiente, segura e transparente** para 
 def pagina_adicionar_equipamento(supabase):
     st.header("Equipamentos")
 
-    tab1, tab2 = st.tabs(["Cadastrar Equipamento", "Gerenciar Status"])
+    tab1, tab2, tab3 = st.tabs(["Cadastrar Equipamento", "Gerenciar Status", "Relação Analítica"])
 
     # ------------------- Aba 1: Cadastrar Equipamento -------------------
     with tab1:
@@ -263,10 +263,42 @@ def pagina_adicionar_equipamento(supabase):
         else:
             st.info("Nenhum equipamento cadastrado ainda.")
 
+    # ------------------- Aba 3: ANALÍTICO CORRIGIDO -------------------
+    with tab3:
+        st.subheader("Analítico dos Equipamentos")
+        
+        # Carregar dados atualizados
+        equipamentos_data = fetch_equipamentos(supabase)
+        
+        if equipamentos_data:
+            # Criar DataFrame
+            df_equip = pd.DataFrame(equipamentos_data)
+            
+            # Mostrar tabela analítica
+            st.dataframe(
+                df_equip[['nome', 'setor', 'numero_serie', 'status']].sort_values(['status', 'setor', 'nome']), 
+                use_container_width=True
+            )
+            
+            # Estatísticas rápidas
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total de Equipamentos", len(df_equip))
+            with col2:
+                ativos = len(df_equip[df_equip['status'] == 'Ativo'])
+                st.metric("Equipamentos Ativos", ativos)
+            with col3:
+                em_manut = len(df_equip[df_equip['status'] == 'Em manutenção'])
+                st.metric("Em Manutenção", em_manut)
+                
+        else:
+            st.info("Nenhum equipamento cadastrado ainda.")
+        
+        st.markdown("---")
 
 def pagina_registrar_manutencao(supabase):
     st.header("Registrar Manutenção")
-    tab1, tab2 = st.tabs(["Abrir Manutenção", "Finalizar Manutenção"])
+    tab1, tab2, tab3 = st.tabs(["Abrir Manutenção", "Finalizar Manutenção", "Relação Analítica"])
     
     # ------------------- Abrir nova manutenção -------------------
     with tab1:
@@ -344,6 +376,70 @@ def pagina_registrar_manutencao(supabase):
                         else:
                             st.error("Erro ao finalizar manutenção.")
 
+    # ------------------- Aba 3: ANALÍTICO CORRIGIDO -------------------
+    with tab3:
+        st.subheader("Analítico das Manutenções")
+        
+        # Carregar dados atualizados
+        manutencoes_data = fetch_manutencoes(supabase)
+        equipamentos_data = fetch_equipamentos(supabase)
+        
+        if manutencoes_data:
+            # Criar DataFrame
+            df_manut = pd.DataFrame(manutencoes_data)
+            
+            # Enriquecer com dados dos equipamentos
+            for idx, row in df_manut.iterrows():
+                equipamento = next((e for e in equipamentos_data if e['id'] == row['equipamento_id']), None)
+                if equipamento:
+                    df_manut.at[idx, 'nome_equipamento'] = equipamento['nome']
+                    df_manut.at[idx, 'setor_equipamento'] = equipamento['setor']
+            
+            # Processar datas e calcular duração
+            df_manut['data_inicio'] = pd.to_datetime(df_manut['data_inicio'])
+            df_manut['data_fim'] = pd.to_datetime(df_manut['data_fim'])
+            
+            # Calcular duração em horas apenas para manutenções concluídas
+            df_manut['duracao_horas'] = None
+            mask_concluida = df_manut['status'] == 'Concluída'
+            df_manut.loc[mask_concluida, 'duracao_horas'] = (
+                df_manut.loc[mask_concluida, 'data_fim'] - df_manut.loc[mask_concluida, 'data_inicio']
+            ).dt.total_seconds() / 3600
+            
+            # Colunas para exibir
+            colunas_exibir = ['nome_equipamento', 'setor_equipamento', 'tipo', 'descricao', 
+                            'data_inicio', 'data_fim', 'status', 'duracao_horas']
+            
+            # Filtrar apenas colunas que existem
+            colunas_disponiveis = [col for col in colunas_exibir if col in df_manut.columns]
+            
+            st.dataframe(
+                df_manut[colunas_disponiveis].sort_values(['status', 'data_inicio'], ascending=[True, False]), 
+                use_container_width=True
+            )
+            
+            # Estatísticas rápidas
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Total de Manutenções", len(df_manut))
+            with col2:
+                em_andamento = len(df_manut[df_manut['status'] == 'Em andamento'])
+                st.metric("Em Andamento", em_andamento)
+            with col3:
+                concluidas = len(df_manut[df_manut['status'] == 'Concluída'])
+                st.metric("Concluídas", concluidas)
+            with col4:
+                if concluidas > 0:
+                    duracao_media = df_manut[df_manut['status'] == 'Concluída']['duracao_horas'].mean()
+                    st.metric("Duração Média (horas)", f"{duracao_media:.1f}")
+                else:
+                    st.metric("Duração Média (horas)", "N/A")
+                    
+        else:
+            st.info("Nenhuma manutenção registrada para análise.")
+        
+        st.markdown("---")
+        
 def create_streamlit_charts(df_equip, df_manut):
     charts = {}
     if not df_equip.empty:
@@ -454,29 +550,6 @@ def pagina_dashboard(supabase):
     fig_dispon.update_yaxes(range=[0,100])
     st.plotly_chart(fig_dispon, use_container_width=True)
     st.markdown("---")
-
-    # --------------------------------------
-    # 6️⃣ Analítico dos Equipamentos
-    # --------------------------------------
-    st.subheader("Analítico dos Equipamentos")
-    st.dataframe(df_equip.sort_values(['status','setor','nome']), use_container_width=True)
-    st.markdown("---")
-
-    # --------------------------------------
-    # 7️⃣ Analítico das Manutenções
-    # --------------------------------------
-    st.subheader("Analítico das Manutenções")
-    if not df_manut.empty:
-        df_manut_analitico = df_manut.copy()
-        df_manut_analitico['data_inicio'] = pd.to_datetime(df_manut_analitico['data_inicio'])
-        df_manut_analitico['data_fim'] = pd.to_datetime(df_manut_analitico['data_fim'])
-    
-        # Criar coluna de duração em horas
-        df_manut_analitico['duracao_horas'] = (df_manut_analitico['data_fim'] - df_manut_analitico['data_inicio']).dt.total_seconds()/3600
-    
-        st.dataframe(df_manut_analitico)
-    else:
-        st.info("Nenhuma manutenção registrada para análise.")
 
 # -------------------
 # Main
