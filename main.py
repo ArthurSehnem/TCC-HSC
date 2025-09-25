@@ -91,10 +91,16 @@ def load_logo():
 # Sidebar
 # -------------------
 def show_sidebar():
-    # Logo se existir
     encoded_logo = load_logo()
     if encoded_logo:
-        st.sidebar.image(f"data:image/png;base64,{encoded_logo}", width=120)
+        st.sidebar.markdown(
+            f"""
+            <div style="text-align: center;">
+                <img src="data:image/png;base64,{encoded_logo}" width="120">
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
         
     st.sidebar.markdown("---")
     
@@ -343,30 +349,27 @@ def pagina_equipamentos(supabase):
         st.subheader("Cadastrar Novo Equipamento")
         
         with st.form("cadastro_equip", clear_on_submit=True):
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                nome = st.text_input("📛 Nome do Equipamento", placeholder="Ex: Monitor Cardíaco")
-                setor = st.selectbox("🏢 Setor", SETORES_PADRAO + ["Outro"])
-                if setor == "Outro":
-                    setor_custom = st.text_input("✏️ Nome do Setor")
-                    setor = setor_custom.strip().title() if setor_custom.strip() else setor
-            
-            with col2:
-                numero_serie = st.text_input("🔢 Número de Série", placeholder="Ex: HSC-2024-001")
-                st.write("")  # Espaço
-                st.write("")  # Espaço
-            
-            submitted = st.form_submit_button("✅ Cadastrar Equipamento", use_container_width=True)
-            
-            if submitted and setor != "Outro":
+            nome = st.text_input("📛 Nome do Equipamento")
+            setor = st.selectbox("🏢 Setor", SETORES_PADRAO + ["Outro"])
+            numero_serie = st.text_input("🔢 Número de Série")
+    
+            if setor == "Outro":
+                setor_custom = st.text_input("✏️ Nome do Setor")
+                setor = setor_custom.strip().title() if setor_custom.strip() else setor
+    
+            submitted = st.form_submit_button("✅ Cadastrar")
+    
+            if submitted:
                 error = validate_equipment_data(nome, setor, numero_serie)
                 if error:
                     st.error(error)
-                elif insert_equipment(supabase, nome, setor, numero_serie):
-                    st.success(f"✅ **{nome}** cadastrado com sucesso!")
-                    st.balloons()
-                    st.cache_data.clear()
+                else:
+                    # Sempre cadastra como "Ativo"
+                    if insert_equipment(supabase, nome, setor, numero_serie):
+                        st.success(f"✅ **{nome}** cadastrado com sucesso!")
+                        st.balloons()
+                        st.cache_data.clear()
+
     
     # Tab 2 - Gerenciar
     with tab2:
@@ -435,7 +438,7 @@ def pagina_equipamentos(supabase):
             
             with col_g1:
                 setor_counts = df['setor'].value_counts()
-                fig1 = px.pie(values=setor_counts.values, names=setor_counts.index, 
+                fig1 = px.bar(values=setor_counts.values, names=setor_counts.index, 
                              title="📊 Equipamentos por Setor")
                 st.plotly_chart(fig1, use_container_width=True)
             
@@ -468,16 +471,13 @@ def pagina_manutencoes(supabase):
         
         if equipamentos_ativos:
             with st.form("abrir_manut", clear_on_submit=True):
-                col1, col2 = st.columns(2)
                 
-                with col1:
-                    equip_options = [f"{e['nome']} - {e['setor']}" for e in equipamentos_ativos]
-                    equip_dict = {opt: equipamentos_ativos[i]['id'] for i, opt in enumerate(equip_options)}
-                    equipamento = st.selectbox("⚙️ Selecionar Equipamento:", equip_options)
-                    tipo = st.selectbox("🔧 Tipo de Manutenção:", TIPOS_MANUTENCAO)
-                
-                with col2:
-                    descricao = st.text_area("📝 Descrição da Manutenção:", 
+                equip_options = [f"{e['nome']} - {e['setor']}" for e in equipamentos_ativos]
+                equip_dict = {opt: equipamentos_ativos[i]['id'] for i, opt in enumerate(equip_options)}
+                equipamento = st.selectbox("⚙️ Selecionar Equipamento:", equip_options)
+                tipo = st.selectbox("🔧 Tipo de Manutenção:", TIPOS_MANUTENCAO)
+
+                descricao = st.text_area("📝 Descrição da Manutenção:", 
                                            placeholder="Descreva o problema ou serviço necessário...",
                                            height=100)
                 
@@ -567,7 +567,7 @@ def pagina_manutencoes(supabase):
             
             with col_g1:
                 tipo_counts = df['tipo'].value_counts()
-                fig1 = px.pie(values=tipo_counts.values, names=tipo_counts.index, 
+                fig1 = px.bar(values=tipo_counts.values, names=tipo_counts.index, 
                              title="📊 Manutenções por Tipo")
                 st.plotly_chart(fig1, use_container_width=True)
             
@@ -637,7 +637,7 @@ def pagina_dashboard(supabase):
             
             if not df_recente.empty:
                 tipo_counts = df_recente['tipo'].value_counts()
-                fig_tipos = px.pie(values=tipo_counts.values, names=tipo_counts.index, 
+                fig_tipos = px.bar(values=tipo_counts.values, names=tipo_counts.index, 
                                   title="Tipos de Manutenção (6 meses)")
                 st.plotly_chart(fig_tipos, use_container_width=True)
         
