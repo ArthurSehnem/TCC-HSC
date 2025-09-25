@@ -55,36 +55,36 @@ ADMIN_EMAIL = st.secrets["login"]["email"]
 ADMIN_PASSWORD = st.secrets["login"]["password"]
 
 def login():
-    st.markdown('<div class="header"><h1>🏥 Sistema HSC - Login</h1></div>', unsafe_allow_html=True)
-    st.info("⚠️ Acesso restrito aos profissionais autorizados do Hospital Santa Cruz.")
+    st.markdown('<div class="header"><h1>Sistema HSC - Login</h1></div>', unsafe_allow_html=True)
+    st.info("Acesso restrito aos profissionais autorizados do Hospital Santa Cruz.")
     
     with st.form("login_form"):
-        email = st.text_input("📧 Email", placeholder="seu.email@hsc.com.br")
-        senha = st.text_input("🔒 Senha", type="password")
+        email = st.text_input("Email", placeholder="seu.email@hsc.com.br")
+        senha = st.text_input("Senha", type="password")
         col1, col2 = st.columns(2)
         with col1:
-            submitted = st.form_submit_button("🔐 Entrar", use_container_width=True)
+            submitted = st.form_submit_button("Entrar", use_container_width=True)
         with col2:
-            if st.form_submit_button("❓ Esqueci a senha", use_container_width=True):
+            if st.form_submit_button("Esqueci a senha", use_container_width=True):
                 st.info("Entre em contato com a TI do hospital.")
     
     if submitted:
         if not email or not senha:
-            st.error("⚠️ Preencha todos os campos.")
+            st.error("Preencha todos os campos.")
         elif email == ADMIN_EMAIL and senha == ADMIN_PASSWORD:
-            st.success("✅ Login realizado!")
+            st.success("Login realizado!")
             st.session_state["user"] = email
             st.session_state["login_time"] = datetime.now()
             st.balloons()
             st.rerun()
         else:
-            st.error("❌ Email ou senha incorretos.")
+            st.error("Email ou senha incorretos.")
 
 def check_session():
     if "user" in st.session_state and "login_time" in st.session_state:
         if datetime.now() - st.session_state["login_time"] > timedelta(hours=8):
             st.session_state.clear()
-            st.warning("⏰ Sessão expirada. Faça login novamente.")
+            st.warning("Sessão expirada. Faça login novamente.")
             st.rerun()
         return True
     return False
@@ -96,7 +96,7 @@ def main_login():
 
 def logout():
     st.session_state.clear()
-    st.success("✅ Logout realizado!")
+    st.success("Logout realizado!")
     st.rerun()
 
 # -------------------
@@ -129,12 +129,12 @@ def show_sidebar():
         st.sidebar.markdown(f"<div style='text-align:center;'><img src='data:image/png;base64,{encoded_logo}' width='120'></div>", unsafe_allow_html=True)
     
     if "user" in st.session_state:
-        st.sidebar.success(f"👋 {st.session_state['user']}")
-        if st.sidebar.button("🚪 Logout"):
+        st.sidebar.success(f"Bem-vindo: {st.session_state['user']}")
+        if st.sidebar.button("Logout"):
             logout()
     
     st.sidebar.markdown("---")
-    return st.sidebar.radio("🧭 Navegação", ["🏠 Início", "⚙️ Equipamentos", "🔧 Manutenções", "📊 Dashboard", "📋 Relatórios"])
+    return st.sidebar.radio("Navegação", ["Início", "Equipamentos", "Manutenções", "Dashboard", "Relatórios"])
 
 # -------------------
 # Funções de banco (mantidas originais)
@@ -207,7 +207,7 @@ def finish_maintenance(supabase, manut_id: int, equipamento_id: int) -> bool:
         return False
 
 # -------------------
-# Sistema de alertas melhorado (simplificado)
+# Sistema de alertas melhorado e expandido
 # -------------------
 def gerar_alertas(df_equip, df_manut):
     if df_equip.empty or df_manut.empty:
@@ -216,7 +216,7 @@ def gerar_alertas(df_equip, df_manut):
     df_manut['data_inicio'] = pd.to_datetime(df_manut['data_inicio'])
     alertas_criticos, alertas_importantes, alertas_info = [], [], []
     
-    # Críticos: Equipamentos com 4+ manutenções em 3 meses
+    # 1. CRÍTICOS: Equipamentos com 4+ manutenções em 3 meses
     tres_meses = datetime.now() - timedelta(days=90)
     manut_3m = df_manut[df_manut['data_inicio'] >= tres_meses]
     problem_equip = manut_3m.groupby('equipamento_id').size()
@@ -224,20 +224,54 @@ def gerar_alertas(df_equip, df_manut):
         if qtd >= 4:
             eq_nome = df_equip[df_equip['id'] == eq_id]['nome'].values
             if len(eq_nome) > 0:
-                alertas_criticos.append(f"🚨 {eq_nome[0]} - {qtd} manutenções em 3 meses")
+                alertas_criticos.append(f"CRÍTICO: {eq_nome[0]} teve {qtd} manutenções em 3 meses")
     
-    # Importantes: Baixa disponibilidade por setor (<75%)
+    # 2. CRÍTICOS: Manutenções urgentes recorrentes (2+ urgentes no mesmo equipamento)
+    urgentes = df_manut[df_manut['tipo'] == 'Urgente']
+    urgentes_por_equip = urgentes.groupby('equipamento_id').size()
+    for eq_id, qtd in urgentes_por_equip.items():
+        if qtd >= 2:
+            eq_nome = df_equip[df_equip['id'] == eq_id]['nome'].values
+            if len(eq_nome) > 0:
+                alertas_criticos.append(f"CRÍTICO: {eq_nome[0]} teve {qtd} manutenções urgentes")
+    
+    # 3. CRÍTICOS: Manutenções longas (mais de 7 dias em andamento)
+    em_andamento = df_manut[df_manut['status'] == 'Em andamento']
+    for idx, row in em_andamento.iterrows():
+        dias = (datetime.now() - row['data_inicio']).days
+        if dias > 7:
+            eq_nome = df_equip[df_equip['id'] == row['equipamento_id']]['nome'].values
+            if len(eq_nome) > 0:
+                alertas_criticos.append(f"CRÍTICO: {eq_nome[0]} em manutenção há {dias} dias")
+    
+    # 4. IMPORTANTES: Baixa disponibilidade por setor (<75%)
     dispo_setor = df_equip.groupby('setor')['status'].apply(lambda x: (x == 'Ativo').sum() / len(x) * 100)
     for setor, dispo in dispo_setor.items():
         if dispo < 75:
-            alertas_importantes.append(f"⚠️ {setor}: {dispo:.1f}% disponibilidade")
+            alertas_importantes.append(f"IMPORTANTE: {setor} com {dispo:.1f}% de disponibilidade")
     
-    # Info: Sem manutenção preventiva em 6 meses
+    # 5. IMPORTANTES: Padrão de falhas consecutivas (3+ do mesmo tipo)
+    for eq_id, df_eq in df_manut.groupby('equipamento_id'):
+        df_eq_sorted = df_eq.sort_values('data_inicio')
+        tipos = df_eq_sorted['tipo'].tolist()
+        count = 1
+        for i in range(1, len(tipos)):
+            if tipos[i] == tipos[i-1]:
+                count += 1
+                if count >= 3:
+                    eq_nome = df_equip[df_equip['id'] == eq_id]['nome'].values
+                    if len(eq_nome) > 0:
+                        alertas_importantes.append(f"IMPORTANTE: {eq_nome[0]} com {count} manutenções consecutivas tipo '{tipos[i]}'")
+                    break
+            else:
+                count = 1
+    
+    # 6. INFO: Sem manutenção preventiva em 6 meses
     seis_meses = datetime.now() - timedelta(days=180)
     preventivas_6m = df_manut[(df_manut['tipo'] == 'Preventiva') & (df_manut['data_inicio'] >= seis_meses)]['equipamento_id'].unique()
     sem_preventiva = df_equip[(~df_equip['id'].isin(preventivas_6m)) & (df_equip['status'] == 'Ativo')]
     for idx, row in sem_preventiva.head(5).iterrows():
-        alertas_info.append(f"ℹ️ {row['nome']} sem preventiva há 6+ meses")
+        alertas_info.append(f"INFO: {row['nome']} sem manutenção preventiva há 6+ meses")
     
     return alertas_criticos, alertas_importantes, alertas_info
 
@@ -267,13 +301,13 @@ def calcular_metricas(df_equip, df_manut):
 # Páginas
 # -------------------
 def pagina_inicial(supabase):
-    st.markdown('<div class="header"><h1>🏥 Sistema de Manutenção HSC</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="header"><h1>Sistema de Manutenção HSC</h1></div>', unsafe_allow_html=True)
     
     df_equip = pd.DataFrame(fetch_equipamentos(supabase))
     df_manut = pd.DataFrame(fetch_manutencoes(supabase))
     
     if df_equip.empty:
-        st.warning("📋 Nenhum equipamento cadastrado. Comece adicionando equipamentos!")
+        st.warning("Nenhum equipamento cadastrado. Comece adicionando equipamentos!")
         return
     
     # Métricas
@@ -281,39 +315,39 @@ def pagina_inicial(supabase):
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.markdown(f'<div class="metric-box"><h3>⚙️ Total</h3><h1>{metricas["total"]}</h1></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-box"><h3>Total de Equipamentos</h3><h1>{metricas["total"]}</h1></div>', unsafe_allow_html=True)
     with col2:
         color = "#28a745" if metricas["disponibilidade"] >= 80 else "#ffc107" if metricas["disponibilidade"] >= 60 else "#dc3545"
-        st.markdown(f'<div class="metric-box"><h3>📊 Disponibilidade</h3><h1 style="color:{color}">{metricas["disponibilidade"]:.1f}%</h1></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-box"><h3>Disponibilidade</h3><h1 style="color:{color}">{metricas["disponibilidade"]:.1f}%</h1></div>', unsafe_allow_html=True)
     with col3:
-        st.markdown(f'<div class="metric-box"><h3>🔧 Em Manutenção</h3><h1>{metricas["manutencao"]}</h1></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-box"><h3>Em Manutenção</h3><h1>{metricas["manutencao"]}</h1></div>', unsafe_allow_html=True)
     with col4:
-        st.markdown(f'<div class="metric-box"><h3>📈 Manutenções/Mês</h3><h1>{metricas["manut_mes"]}</h1></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-box"><h3>Manutenções/Mês</h3><h1>{metricas["manut_mes"]}</h1></div>', unsafe_allow_html=True)
     
     # Alertas
     if not df_manut.empty:
         criticos, importantes, info = gerar_alertas(df_equip, df_manut)
         
         st.markdown("---")
-        st.subheader("🧠 Alertas Inteligentes")
+        st.subheader("Alertas Inteligentes")
         
         if criticos:
-            st.markdown("#### 🚨 Críticos")
+            st.markdown("#### Críticos")
             for alerta in criticos:
                 st.markdown(f'<div class="alert-critical">{alerta}</div>', unsafe_allow_html=True)
         
         if importantes:
-            with st.expander("⚠️ Importantes", expanded=not criticos):
+            with st.expander("Importantes", expanded=not criticos):
                 for alerta in importantes:
                     st.markdown(f'<div class="alert-warning">{alerta}</div>', unsafe_allow_html=True)
         
         if info:
-            with st.expander("ℹ️ Informativos"):
+            with st.expander("Informativos"):
                 for alerta in info:
                     st.write(f"• {alerta}")
         
         if not any([criticos, importantes, info]):
-            st.markdown('<div class="alert-info"><h3>✅ Sistema Operacional</h3><p>Todos os equipamentos funcionando normalmente!</p></div>', unsafe_allow_html=True)
+            st.markdown('<div class="alert-info"><h3>Sistema Operacional</h3><p>Todos os equipamentos funcionando normalmente!</p></div>', unsafe_allow_html=True)
 
 def pagina_equipamentos(supabase):
     st.header("⚙️ Gestão de Equipamentos")
@@ -598,15 +632,15 @@ def main():
     
     pagina = show_sidebar()
     
-    if pagina == "🏠 Início":
+    if pagina == "Início":
         pagina_inicial(supabase)
-    elif pagina == "⚙️ Equipamentos":
+    elif pagina == "Equipamentos":
         pagina_equipamentos(supabase)
-    elif pagina == "🔧 Manutenções":
+    elif pagina == "Manutenções":
         pagina_manutencoes(supabase)
-    elif pagina == "📊 Dashboard":
+    elif pagina == "Dashboard":
         pagina_dashboard(supabase)
-    elif pagina == "📋 Relatórios":
+    elif pagina == "Relatórios":
         pagina_relatorios(supabase)
 
 if __name__ == "__main__":
