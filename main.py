@@ -377,7 +377,6 @@ def pagina_equipamentos(supabase):
         
         equipamentos = fetch_equipamentos(supabase)
         if equipamentos:
-            # Busca
             busca = st.text_input("🔍 Buscar equipamento", placeholder="Digite nome ou setor...")
             
             if busca:
@@ -387,7 +386,6 @@ def pagina_equipamentos(supabase):
                                busca.lower() in e['numero_serie'].lower()]
             
             if equipamentos:
-                # Criar dicionário para seleção
                 equip_options = []
                 for e in equipamentos:
                     status_icon = "🟢" if e['status'] == 'Ativo' else "🔴" if e['status'] == 'Em manutenção' else "🟡"
@@ -405,15 +403,17 @@ def pagina_equipamentos(supabase):
                         st.info(f"**Equipamento:** {equip['nome']}\n\n**Setor:** {equip['setor']}\n\n**Série:** {equip['numero_serie']}\n\n**Status Atual:** {equip['status']}")
                     
                     with col2:
-                        novo_status = st.selectbox("Alterar Status:", [s for s in STATUS_EQUIPAMENTOS if s != equip['status']])
-                        if st.button(f"🔄 Alterar para {novo_status}", use_container_width=True):
-                            try:
-                                supabase.table("equipamentos").update({"status": novo_status}).eq("id", equip['id']).execute()
-                                st.success(f"✅ Status alterado para **{novo_status}**!")
-                                st.cache_data.clear()
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"❌ Erro ao alterar status: {e}")
+                        # Permitir apenas marcar como Inativo se ainda não estiver inativo
+                        if equip['status'] != 'Inativo':
+                            novo_status = "Inativo"
+                            if st.button(f"🔄 Marcar como {novo_status}", use_container_width=True):
+                                try:
+                                    supabase.table("equipamentos").update({"status": novo_status}).eq("id", equip['id']).execute()
+                                    st.success(f"✅ Status alterado para **{novo_status}**!")
+                                    st.cache_data.clear()
+                                    st.rerun()
+                        else:
+                            st.info("⚠️ Este equipamento já está inativo.")
             else:
                 st.warning("⚠️ Nenhum equipamento encontrado com esse termo de busca.")
         else:
@@ -651,7 +651,7 @@ def pagina_dashboard(supabase):
             manut_mensal = df_manut.groupby('mes').size().reset_index()
             manut_mensal.columns = ['Mês', 'Quantidade']
             manut_mensal['Mês'] = manut_mensal['Mês'].astype(str)
-            
+
             if len(manut_mensal) > 1:
                 fig_tendencia = px.line(manut_mensal.tail(12), x='Mês', y='Quantidade', 
                                         title="Tendência de Manutenções (12 meses)")
