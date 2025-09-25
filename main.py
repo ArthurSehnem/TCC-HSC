@@ -44,7 +44,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Constantes
-SETORES_PADRAO = ["Hemodiálise", "Lavanderia", "Instrumentais Cirúrgicos", "UTI", "Centro Cirúrgico", "Radiologia", "Laboratório", "Emergência"]
+SETORES_PADRAO = ["Hemodiálise", "Lavanderia", "Instrumentais Cirúrgicos", "Emergência"]
 TIPOS_MANUTENCAO = ["Preventiva", "Corretiva", "Urgente", "Calibração", "Higienização", "Inspeção"]
 STATUS_EQUIPAMENTOS = ["Ativo", "Inativo", "Em manutenção", "Aguardando peças"]
 
@@ -134,10 +134,10 @@ def show_sidebar():
             logout()
     
     st.sidebar.markdown("---")
-    return st.sidebar.radio("Navegação", ["Início", "Equipamentos", "Manutenções", "Dashboard", "Relatórios"])
+    return st.sidebar.radio("Navegação", ["Início", "Equipamentos", "Manutenções", "Dashboard"])
 
 # -------------------
-# Funções de banco (mantidas originais)
+# Funções de banco
 # -------------------
 def fetch_equipamentos(supabase) -> List[Dict]:
     try:
@@ -207,7 +207,7 @@ def finish_maintenance(supabase, manut_id: int, equipamento_id: int) -> bool:
         return False
 
 # -------------------
-# Sistema de alertas melhorado e expandido
+# Sistema de alertas inteligentes
 # -------------------
 def gerar_alertas(df_equip, df_manut):
     if df_equip.empty or df_manut.empty:
@@ -216,7 +216,7 @@ def gerar_alertas(df_equip, df_manut):
     df_manut['data_inicio'] = pd.to_datetime(df_manut['data_inicio'])
     alertas_criticos, alertas_importantes, alertas_info = [], [], []
     
-    # 1. CRÍTICOS: Equipamentos com 4+ manutenções em 3 meses
+    # Equipamentos com 4+ manutenções em 3 meses
     tres_meses = datetime.now() - timedelta(days=90)
     manut_3m = df_manut[df_manut['data_inicio'] >= tres_meses]
     problem_equip = manut_3m.groupby('equipamento_id').size()
@@ -226,7 +226,7 @@ def gerar_alertas(df_equip, df_manut):
             if len(eq_nome) > 0:
                 alertas_criticos.append(f"CRÍTICO: {eq_nome[0]} teve {qtd} manutenções em 3 meses")
     
-    # 2. CRÍTICOS: Manutenções urgentes recorrentes (2+ urgentes no mesmo equipamento)
+    # Manutenções urgentes recorrentes (2+ urgentes no mesmo equipamento)
     urgentes = df_manut[df_manut['tipo'] == 'Urgente']
     urgentes_por_equip = urgentes.groupby('equipamento_id').size()
     for eq_id, qtd in urgentes_por_equip.items():
@@ -235,7 +235,7 @@ def gerar_alertas(df_equip, df_manut):
             if len(eq_nome) > 0:
                 alertas_criticos.append(f"CRÍTICO: {eq_nome[0]} teve {qtd} manutenções urgentes")
     
-    # 3. CRÍTICOS: Manutenções longas (mais de 7 dias em andamento)
+    # Manutenções longas (mais de 7 dias em andamento)
     em_andamento = df_manut[df_manut['status'] == 'Em andamento']
     for idx, row in em_andamento.iterrows():
         dias = (datetime.now() - row['data_inicio']).days
@@ -244,13 +244,13 @@ def gerar_alertas(df_equip, df_manut):
             if len(eq_nome) > 0:
                 alertas_criticos.append(f"CRÍTICO: {eq_nome[0]} em manutenção há {dias} dias")
     
-    # 4. IMPORTANTES: Baixa disponibilidade por setor (<75%)
+    # Baixa disponibilidade por setor (<75%)
     dispo_setor = df_equip.groupby('setor')['status'].apply(lambda x: (x == 'Ativo').sum() / len(x) * 100)
     for setor, dispo in dispo_setor.items():
         if dispo < 75:
             alertas_importantes.append(f"IMPORTANTE: {setor} com {dispo:.1f}% de disponibilidade")
     
-    # 5. IMPORTANTES: Padrão de falhas consecutivas (3+ do mesmo tipo)
+    # Padrão de falhas consecutivas (3+ do mesmo tipo)
     for eq_id, df_eq in df_manut.groupby('equipamento_id'):
         df_eq_sorted = df_eq.sort_values('data_inicio')
         tipos = df_eq_sorted['tipo'].tolist()
@@ -266,7 +266,7 @@ def gerar_alertas(df_equip, df_manut):
             else:
                 count = 1
     
-    # 6. INFO: Sem manutenção preventiva em 6 meses
+    # 6. Sem manutenção preventiva em 6 meses
     seis_meses = datetime.now() - timedelta(days=180)
     preventivas_6m = df_manut[(df_manut['tipo'] == 'Preventiva') & (df_manut['data_inicio'] >= seis_meses)]['equipamento_id'].unique()
     sem_preventiva = df_equip[(~df_equip['id'].isin(preventivas_6m)) & (df_equip['status'] == 'Ativo')]
