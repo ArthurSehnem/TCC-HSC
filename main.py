@@ -23,10 +23,23 @@ st.set_page_config(
 st.markdown("""
 <style>
 .header {background: linear-gradient(90deg, #1f4e79, #2d5aa0); padding: 1rem; border-radius: 10px; color: white; text-align: center;}
-.metric-box {background: #f0f8ff; padding: 1rem; border-radius: 8px; border-left: 4px solid #1f4e79;}
-.alert-critical {background: #f8d7da; padding: 1rem; border-radius: 8px; border-left: 4px solid #dc3545;}
-.alert-warning {background: #fff3cd; padding: 1rem; border-radius: 8px; border-left: 4px solid #ffc107;}
-.alert-info {background: #d4edda; padding: 1rem; border-radius: 8px; border-left: 4px solid #28a745;}
+.metric-box {
+    background: #f0f8ff; 
+    padding: 1rem; 
+    border-radius: 8px; 
+    border-left: 4px solid #1f4e79; 
+    margin: 0.5rem 0;
+    height: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+}
+.metric-box h3 {margin: 0 0 0.5rem 0; font-size: 1rem;}
+.metric-box h1 {margin: 0; font-size: 2rem;}
+.alert-critical {background: #f8d7da; padding: 1rem; border-radius: 8px; border-left: 4px solid #dc3545; margin: 0.5rem 0;}
+.alert-warning {background: #fff3cd; padding: 1rem; border-radius: 8px; border-left: 4px solid #ffc107; margin: 0.5rem 0;}
+.alert-info {background: #d4edda; padding: 1rem; border-radius: 8px; border-left: 4px solid #28a745; margin: 0.5rem 0;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -281,18 +294,21 @@ def pagina_inicial(supabase):
     if not df_manut.empty:
         criticos, importantes, info = gerar_alertas(df_equip, df_manut)
         
+        st.markdown("---")
+        st.subheader("🧠 Alertas Inteligentes")
+        
         if criticos:
-            st.markdown("### 🚨 Alertas Críticos")
+            st.markdown("#### 🚨 Críticos")
             for alerta in criticos:
                 st.markdown(f'<div class="alert-critical">{alerta}</div>', unsafe_allow_html=True)
         
         if importantes:
-            with st.expander("⚠️ Alertas Importantes", expanded=not criticos):
+            with st.expander("⚠️ Importantes", expanded=not criticos):
                 for alerta in importantes:
                     st.markdown(f'<div class="alert-warning">{alerta}</div>', unsafe_allow_html=True)
         
         if info:
-            with st.expander("ℹ️ Informações"):
+            with st.expander("ℹ️ Informativos"):
                 for alerta in info:
                     st.write(f"• {alerta}")
         
