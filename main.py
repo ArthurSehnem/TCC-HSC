@@ -11,8 +11,6 @@ import plotly.graph_objects as go
 # Configuração inicial
 # -------------------
 st.set_page_config(
-    page_title="Sistema de Manutenção | HSC",
-    page_icon="🏥",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -20,7 +18,7 @@ st.set_page_config(
 # Constantes
 SETORES_PADRAO = ["Hemodiálise", "Lavanderia", "Instrumentais Cirúrgicos", "Emergência"]
 TIPOS_MANUTENCAO = ["Preventiva", "Corretiva", "Urgente", "Calibração", "Higienização", "Inspeção"]
-STATUS_EQUIPAMENTOS = ["Ativo", "Inativo", "Em manutenção", "Aguardando peças"]
+STATUS_EQUIPAMENTOS = ["Ativo", "Inativo"]
 
 # -------------------
 # Sistema de Login
@@ -29,11 +27,11 @@ ADMIN_EMAIL = st.secrets["login"]["email"]
 ADMIN_PASSWORD = st.secrets["login"]["password"]
 
 def login():
-    st.title("🏥 Sistema HSC - Login")
+    st.title("Sistema HSC - Login")
     st.info("Acesso restrito aos profissionais autorizados do Hospital Santa Cruz.")
     
     with st.form("login_form"):
-        email = st.text_input("Email", placeholder="seu.email@hsc.com.br")
+        email = st.text_input("Email")
         senha = st.text_input("Senha", type="password")
         submitted = st.form_submit_button("🔐 Entrar", use_container_width=True)
     
@@ -93,24 +91,16 @@ def load_logo():
 # Sidebar
 # -------------------
 def show_sidebar():
-    st.sidebar.title("🏥 Sistema HSC")
-    
     # Logo se existir
     encoded_logo = load_logo()
     if encoded_logo:
         st.sidebar.image(f"data:image/png;base64,{encoded_logo}", width=120)
-    
-    # Info do usuário
-    if "user" in st.session_state:
-        st.sidebar.success(f"👤 **{st.session_state['user'].split('@')[0]}**")
-        if st.sidebar.button("🚪 Logout", use_container_width=True):
-            logout()
-    
+        
     st.sidebar.markdown("---")
     
     # Menu principal
     menu = st.sidebar.radio(
-        "📋 Menu Principal", 
+        "Menu Principal", 
         ["🏠 Início", "⚙️ Equipamentos", "🔧 Manutenções", "📊 Dashboard"],
         index=0
     )
@@ -272,8 +262,7 @@ def calcular_metricas(df_equip, df_manut):
 # Páginas
 # -------------------
 def pagina_inicial(supabase):
-    st.title("🏠 Sistema de Manutenção HSC")
-    st.markdown("**Hospital Santa Cruz - Gestão de Equipamentos e Manutenções**")
+    st.title("Sistema de Manutenção HSC")
     
     # Carregar dados
     df_equip = pd.DataFrame(fetch_equipamentos(supabase))
@@ -303,7 +292,7 @@ def pagina_inicial(supabase):
     if not df_manut.empty:
         criticos, importantes, info = gerar_alertas(df_equip, df_manut)
         
-        st.subheader("🚨 Alertas do Sistema")
+        st.subheader("🚨 Alertas Inteligentes")
         
         # Alertas críticos
         if criticos:
