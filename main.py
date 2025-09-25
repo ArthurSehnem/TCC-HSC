@@ -53,8 +53,8 @@ st.set_page_config(
 @st.cache_resource
 def init_supabase():
     try:
-        url = st.secrets["SUPABASE_URL"]
-        key = st.secrets["SUPABASE_KEY"]
+        url = st.secrets["supabase"]["SUPABASE_URL"]
+        key = st.secrets["supabase"]["SUPABASE_KEY"]
         return create_client(url, key)
     except Exception as e:
         st.error(f"Erro ao conectar com o banco de dados: {e}")
@@ -324,3 +324,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
