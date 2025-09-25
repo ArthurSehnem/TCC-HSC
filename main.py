@@ -374,34 +374,34 @@ def pagina_equipamentos(supabase):
     # Tab 2 - Gerenciar
     with tab2:
         st.subheader("Gerenciar Equipamentos Existentes")
-        
+
         equipamentos = fetch_equipamentos(supabase)
         if equipamentos:
             busca = st.text_input("🔍 Buscar equipamento", placeholder="Digite nome ou setor...")
-            
+
             if busca:
                 equipamentos = [e for e in equipamentos if 
                                busca.lower() in e['nome'].lower() or 
                                busca.lower() in e['setor'].lower() or 
                                busca.lower() in e['numero_serie'].lower()]
-            
+
             if equipamentos:
                 equip_options = []
                 for e in equipamentos:
                     status_icon = "🟢" if e['status'] == 'Ativo' else "🔴" if e['status'] == 'Em manutenção' else "🟡"
                     equip_options.append(f"{status_icon} {e['nome']} | {e['setor']} | {e['status']}")
-                
+
                 equip_dict = {opt: equipamentos[i] for i, opt in enumerate(equip_options)}
-                
+
                 selecionado = st.selectbox("Selecionar Equipamento:", equip_options)
-                
+
                 if selecionado:
                     equip = equip_dict[selecionado]
-                    
+
                     col1, col2 = st.columns(2)
                     with col1:
                         st.info(f"**Equipamento:** {equip['nome']}\n\n**Setor:** {equip['setor']}\n\n**Série:** {equip['numero_serie']}\n\n**Status Atual:** {equip['status']}")
-                    
+
                     with col2:
                         # Permitir apenas marcar como Inativo se ainda não estiver inativo
                         if equip['status'] != 'Inativo':
@@ -412,13 +412,11 @@ def pagina_equipamentos(supabase):
                                     st.success(f"✅ Status alterado para **{novo_status}**!")
                                     st.cache_data.clear()
                                     st.rerun()
+                                except Exception as e:
+                                    st.error(f"❌ Erro ao alterar status: {e}")
                         else:
                             st.info("⚠️ Este equipamento já está inativo.")
-            else:
-                st.warning("⚠️ Nenhum equipamento encontrado com esse termo de busca.")
-        else:
-            st.warning("⚠️ Nenhum equipamento cadastrado.")
-    
+
     # Tab 3 - Relatórios
     with tab3:
         st.subheader("Relatórios de Equipamentos")
