@@ -437,15 +437,17 @@ def pagina_equipamentos(supabase):
             col_g1, col_g2 = st.columns(2)
             
             with col_g1:
-                setor_counts = df['setor'].value_counts()
-                fig1 = px.bar(values=setor_counts.values, names=setor_counts.index, 
-                             title="📊 Equipamentos por Setor")
+                setor_counts = df['setor'].value_counts().reset_index()
+                setor_counts.columns = ['Setor', 'Quantidade']
+                fig1 = px.bar(setor_counts, x='Setor', y='Quantidade', 
+                              title="📊 Equipamentos por Setor")
                 st.plotly_chart(fig1, use_container_width=True)
             
             with col_g2:
-                status_counts = df['status'].value_counts()
-                fig2 = px.bar(x=status_counts.index, y=status_counts.values, 
-                             title="📈 Equipamentos por Status")
+                status_counts = df['status'].value_counts().reset_index()
+                status_counts.columns = ['Status', 'Quantidade']
+                fig2 = px.bar(status_counts, x='Status', y='Quantidade', 
+                              title="📈 Equipamentos por Status")
                 st.plotly_chart(fig2, use_container_width=True)
             
             # Tabela
@@ -564,18 +566,20 @@ def pagina_manutencoes(supabase):
             
             # Gráficos
             col_g1, col_g2 = st.columns(2)
-            
+
             with col_g1:
-                tipo_counts = df['tipo'].value_counts()
-                fig1 = px.bar(values=tipo_counts.values, names=tipo_counts.index, 
-                             title="📊 Manutenções por Tipo")
+                tipo_counts = df['tipo'].value_counts().reset_index()
+                tipo_counts.columns = ['Tipo', 'Quantidade']
+                fig1 = px.bar(tipo_counts, x='Tipo', y='Quantidade', 
+                              title="📊 Manutenções por Tipo")
                 st.plotly_chart(fig1, use_container_width=True)
-            
+
             with col_g2:
                 if 'setor' in df.columns:
-                    setor_counts = df['setor'].value_counts()
-                    fig2 = px.bar(x=setor_counts.index, y=setor_counts.values, 
-                                 title="📈 Manutenções por Setor")
+                    setor_counts = df['setor'].value_counts().reset_index()
+                    setor_counts.columns = ['Setor', 'Quantidade']
+                    fig2 = px.bar(setor_counts, x='Setor', y='Quantidade', 
+                                  title="📈 Manutenções por Setor")
                     st.plotly_chart(fig2, use_container_width=True)
             
             # Tabela
@@ -610,7 +614,6 @@ def pagina_dashboard(supabase):
     st.markdown("---")
     
     # Gráfico principal - Disponibilidade por setor
-    st.subheader("📊 Disponibilidade por Setor")
     dispo_setor = df_equip.groupby('setor')['status'].apply(
         lambda x: (x == 'Ativo').sum() / len(x) * 100
     ).reset_index()
@@ -636,9 +639,10 @@ def pagina_dashboard(supabase):
             df_recente = df_manut[df_manut['data_inicio'] >= seis_meses]
             
             if not df_recente.empty:
-                tipo_counts = df_recente['tipo'].value_counts()
-                fig_tipos = px.bar(values=tipo_counts.values, names=tipo_counts.index, 
-                                  title="Tipos de Manutenção (6 meses)")
+                tipo_counts = df_recente['tipo'].value_counts().reset_index()
+                tipo_counts.columns = ['Tipo', 'Quantidade']
+                fig_tipos = px.bar(tipo_counts, x='Tipo', y='Quantidade', 
+                                   title="Tipos de Manutenção (6 meses)")
                 st.plotly_chart(fig_tipos, use_container_width=True)
         
         with col_g2:
@@ -650,7 +654,7 @@ def pagina_dashboard(supabase):
             
             if len(manut_mensal) > 1:
                 fig_tendencia = px.line(manut_mensal.tail(12), x='Mês', y='Quantidade', 
-                                       title="Tendência de Manutenções (12 meses)")
+                                        title="Tendência de Manutenções (12 meses)")
                 st.plotly_chart(fig_tendencia, use_container_width=True)
     
     # Resumo por setor
