@@ -334,7 +334,7 @@ def pagina_inicial(supabase):
     
 
 def pagina_equipamentos(supabase):
-    st.title("⚙️ Gestão de Equipamentos")
+    st.title("Gestão de Equipamentos")
     
     tab1, tab2, tab3 = st.tabs(["➕ Cadastrar Novo", "📝 Gerenciar Existentes", "📊 Relatórios"])
     
@@ -456,7 +456,7 @@ def pagina_equipamentos(supabase):
                              use_container_width=True)
 
 def pagina_manutencoes(supabase):
-    st.title("🔧 Gestão de Manutenções")
+    st.title("Gestão de Manutenções")
     
     tab1, tab2, tab3 = st.tabs(["🆕 Abrir Manutenção", "✅ Finalizar Manutenção", "📊 Relatórios"])
     
@@ -586,7 +586,7 @@ def pagina_manutencoes(supabase):
             st.warning("⚠️ Nenhuma manutenção registrada.")
 
 def pagina_dashboard(supabase):
-    st.title("📊 Dashboard Executivo")
+    st.title("Dashboard Executivo")
     
     df_equip = pd.DataFrame(fetch_equipamentos(supabase))
     df_manut = pd.DataFrame(fetch_manutencoes(supabase))
