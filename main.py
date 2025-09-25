@@ -272,6 +272,22 @@ def pagina_inicial(supabase):
         st.warning("⚠️ Nenhum equipamento cadastrado. Comece adicionando equipamentos na aba **Equipamentos**!")
         return
     
+    st.markdown(
+        """
+        Bem-vindo ao **Sistema de Manutenção do HSC** 👨‍⚕️🏥  
+
+        Esta plataforma foi desenvolvida para otimizar a gestão dos equipamentos hospitalares, oferecendo **visão integrada do inventário, acompanhamento das manutenções e indicadores de desempenho**.  
+        Aqui você pode **cadastrar equipamentos**, registrar e consultar manutenções realizadas, além de monitorar a **disponibilidade e o status dos ativos em tempo real**.  
+
+        O sistema também conta com um módulo de **alertas inteligentes**, classificados em três níveis:  
+        - 🚨 **Críticos**: situações que exigem **ação imediata**, como equipamentos vitais inativos ou manutenção atrasada.  
+        - ⚠️ **Importantes**: avisos que demandam atenção em breve, como revisões programadas próximas do vencimento.  
+        - 💡 **Informativos**: lembretes gerais e recomendações úteis para o acompanhamento da frota de equipamentos.  
+
+        Dessa forma, o sistema garante **segurança, eficiência e transparência** na gestão hospitalar, apoiando decisões rápidas e assertivas.  
+        """
+    )
+        
     # Métricas principais
     metricas = calcular_metricas(df_equip, df_manut)
     
@@ -316,23 +332,6 @@ def pagina_inicial(supabase):
         if not any([criticos, importantes, info]):
             st.success("🎉 **Sistema Operacional** - Todos os equipamentos funcionando normalmente!")
     
-    # Resumo rápido
-    st.markdown("---")
-    st.subheader("📋 Resumo Rápido")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.info("**Equipamentos por Setor:**")
-        setor_counts = df_equip['setor'].value_counts()
-        for setor, qtd in setor_counts.items():
-            st.write(f"• **{setor}**: {qtd} equipamentos")
-    
-    with col2:
-        if not df_manut.empty:
-            st.info("**Manutenções por Tipo:**")
-            tipo_counts = df_manut['tipo'].value_counts()
-            for tipo, qtd in tipo_counts.head(5).items():
-                st.write(f"• **{tipo}**: {qtd} manutenções")
 
 def pagina_equipamentos(supabase):
     st.title("⚙️ Gestão de Equipamentos")
