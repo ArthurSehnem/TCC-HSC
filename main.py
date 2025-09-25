@@ -62,14 +62,11 @@ def login():
 # -------------------
 @st.cache_resource
 def init_supabase():
-    try:
-        url = st.secrets["SUPABASE_URL"]
-        key = st.secrets["SUPABASE_KEY"]
-        return create_client(url, key)
-    except Exception as e:
-        st.error(f"Erro ao conectar com o banco de dados: {e}")
-        st.info("Verifique se as credenciais do Supabase estão configuradas corretamente nos secrets.")
-        return None
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["key"]
+    return create_client(url, key)
+
+supabase = init_supabase()
 
 @st.cache_data(ttl=300)
 def load_logo():
@@ -111,26 +108,14 @@ def show_sidebar():
         )
 
 @st.cache_data(ttl=60)  # Cache por 1 minuto
-def fetch_equipamentos(supabase) -> List[Dict]:
-    if not supabase:
-        return []
-    try:
-        response = supabase.table("equipamentos").select("*").order("nome").execute()
-        return response.data if response.data else []
-    except Exception as e:
-        st.error(f"Erro ao carregar equipamentos: {e}")
-        return []
+def fetch_equipamentos():
+    response = supabase.table("equipamentos").select("*").execute()
+    return response.data if response.data else []
 
 @st.cache_data(ttl=60)  # Cache por 1 minuto
-def fetch_manutencoes(supabase) -> List[Dict]:
-    if not supabase:
-        return []
-    try:
-        response = supabase.table("manutencoes").select("*").order("data_inicio", desc=True).execute()
-        return response.data if response.data else []
-    except Exception as e:
-        st.error(f"Erro ao carregar manutenções: {e}")
-        return []
+def fetch_manutencoes():
+    response = supabase.table("manutencoes").select("*").execute()
+    return response.data if response.data else []
 
 def validate_equipment_data(nome: str, setor: str, numero_serie: str) -> Optional[str]:
     if not nome.strip():
