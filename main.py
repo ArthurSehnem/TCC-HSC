@@ -17,7 +17,7 @@ st.set_page_config(
 
 # Constantes
 SETORES_PADRAO = ["Hemodiálise", "Lavanderia", "Instrumentais Cirúrgicos", "Emergência"]
-TIPOS_MANUTENCAO = ["Preventiva", "Corretiva", "Urgente", "Calibração", "Higienização", "Inspeção"]
+TIPOS_MANUTENCAO = ["Preventiva", "Corretiva", "Urgente"]
 STATUS_EQUIPAMENTOS = ["Ativo", "Inativo"]
 
 # -------------------
@@ -349,12 +349,12 @@ def pagina_equipamentos(supabase):
         st.subheader("Cadastrar Novo Equipamento")
         
         with st.form("cadastro_equip", clear_on_submit=True):
-            nome = st.text_input("📛 Nome do Equipamento")
-            setor = st.selectbox("🏢 Setor", SETORES_PADRAO + ["Outro"])
-            numero_serie = st.text_input("🔢 Número de Série")
+            nome = st.text_input("Nome do Equipamento")
+            setor = st.selectbox("Setor", SETORES_PADRAO + ["Outro"])
+            numero_serie = st.text_input("Número de Série")
     
             if setor == "Outro":
-                setor_custom = st.text_input("✏️ Nome do Setor")
+                setor_custom = st.text_input("Nome do Setor")
                 setor = setor_custom.strip().title() if setor_custom.strip() else setor
     
             submitted = st.form_submit_button("✅ Cadastrar")
@@ -438,18 +438,18 @@ def pagina_equipamentos(supabase):
                 setor_counts = df['setor'].value_counts().reset_index()
                 setor_counts.columns = ['Setor', 'Quantidade']
                 fig1 = px.bar(setor_counts, x='Setor', y='Quantidade', 
-                              title="📊 Equipamentos por Setor")
+                              title="Equipamentos por Setor")
                 st.plotly_chart(fig1, use_container_width=True)
             
             with col_g2:
                 status_counts = df['status'].value_counts().reset_index()
                 status_counts.columns = ['Status', 'Quantidade']
                 fig2 = px.bar(status_counts, x='Status', y='Quantidade', 
-                              title="📈 Equipamentos por Status")
+                              title="Equipamentos por Status")
                 st.plotly_chart(fig2, use_container_width=True)
             
             # Tabela
-            st.subheader("📋 Lista Completa")
+            st.subheader("Lista Completa")
             st.dataframe(df[['nome', 'setor', 'numero_serie', 'status']], use_container_width=True)
             
             # Export
@@ -474,10 +474,10 @@ def pagina_manutencoes(supabase):
                 
                 equip_options = [f"{e['nome']} - {e['setor']}" for e in equipamentos_ativos]
                 equip_dict = {opt: equipamentos_ativos[i]['id'] for i, opt in enumerate(equip_options)}
-                equipamento = st.selectbox("⚙️ Selecionar Equipamento:", equip_options)
-                tipo = st.selectbox("🔧 Tipo de Manutenção:", TIPOS_MANUTENCAO)
+                equipamento = st.selectbox("Selecionar Equipamento:", equip_options)
+                tipo = st.selectbox("Tipo de Manutenção:", TIPOS_MANUTENCAO)
 
-                descricao = st.text_area("📝 Descrição da Manutenção:", 
+                descricao = st.text_area("Descrição da Manutenção:", 
                                            placeholder="Descreva o problema ou serviço necessário...",
                                            height=100)
                 
@@ -569,7 +569,7 @@ def pagina_manutencoes(supabase):
                 tipo_counts = df['tipo'].value_counts().reset_index()
                 tipo_counts.columns = ['Tipo', 'Quantidade']
                 fig1 = px.bar(tipo_counts, x='Tipo', y='Quantidade', 
-                              title="📊 Manutenções por Tipo")
+                              title="Manutenções por Tipo")
                 st.plotly_chart(fig1, use_container_width=True)
 
             with col_g2:
@@ -577,7 +577,7 @@ def pagina_manutencoes(supabase):
                     setor_counts = df['setor'].value_counts().reset_index()
                     setor_counts.columns = ['Setor', 'Quantidade']
                     fig2 = px.bar(setor_counts, x='Setor', y='Quantidade', 
-                                  title="📈 Manutenções por Setor")
+                                  title="Manutenções por Setor")
                     st.plotly_chart(fig2, use_container_width=True)
             
             # Tabela
@@ -603,11 +603,11 @@ def pagina_dashboard(supabase):
     st.subheader("📈 Métricas Principais")
     col1, col2, col3, col4 = st.columns(4)
     
-    col1.metric("⚙️ Total de Equipamentos", metricas["total"])
-    col2.metric("📊 Disponibilidade Geral", f"{metricas['disponibilidade']:.1f}%", 
+    col1.metric("Total de Equipamentos", metricas["total"])
+    col2.metric("Disponibilidade Geral", f"{metricas['disponibilidade']:.1f}%", 
                 delta=f"{metricas['disponibilidade']-75:.1f}%" if metricas['disponibilidade'] != 75 else None)
-    col3.metric("✅ Equipamentos Ativos", metricas["ativos"])
-    col4.metric("🔧 Manutenções/Mês", metricas["manut_mes"])
+    col3.metric("Equipamentos Ativos", metricas["ativos"])
+    col4.metric("Manutenções/Mês", metricas["manut_mes"])
     
     st.markdown("---")
     
