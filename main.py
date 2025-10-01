@@ -172,12 +172,13 @@ def start_maintenance(supabase, equipamento_id: int, tipo: str, descricao: str) 
         st.error(f"❌ Erro ao abrir manutenção: {e}")
         return False
 
-def finish_maintenance(supabase, manut_id: int, equipamento_id: int) -> bool:
+def finish_maintenance(supabase, manut_id: int, equipamento_id: int, resolucao: str) -> bool:
     try:
-        # Finalizar manutenção
+        # Finalizar manutenção com descrição da resolução
         manut_response = supabase.table("manutencoes").update({
             "data_fim": datetime.now().isoformat(),
-            "status": "Concluída"
+            "status": "Concluída",
+            "resolucao": resolucao.strip()
         }).eq("id", manut_id).execute()
         
         if manut_response.data:
@@ -477,7 +478,7 @@ def pagina_manutencoes(supabase):
                 equipamento = st.selectbox("Selecionar Equipamento:", equip_options)
                 tipo = st.selectbox("Tipo de Manutenção:", TIPOS_MANUTENCAO)
 
-                descricao = st.text_area("Descrição da Manutenção:", 
+                descricao = st.text_area("Descrição do Problema:", 
                                            placeholder="Descreva o problema ou serviço necessário...",
                                            height=100)
                 
@@ -513,7 +514,8 @@ def pagina_manutencoes(supabase):
                         'display': f"{status_icon} {eq['nome']} | {m['tipo']} | {dias} dias",
                         'manut_id': m['id'],
                         'equip_id': m['equipamento_id'],
-                        'descricao': m.get('descricao', 'Sem descrição')
+                        'descricao': m.get('descricao', 'Sem descrição'),
+                        'equipamento_nome': eq['nome']
                     })
             
             if manut_info:
@@ -523,20 +525,32 @@ def pagina_manutencoes(supabase):
                 if selecionada:
                     info = manut_dict[selecionada]
                     
-                    # Mostrar detalhes
-                    st.info(f"**Descrição:** {info['descricao']}")
+                    # Mostrar detalhes do problema
+                    st.info(f"**Problema Relatado:** {info['descricao']}")
                     
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if st.button("✅ Finalizar Manutenção", use_container_width=True):
-                            if finish_maintenance(supabase, info['manut_id'], info['equip_id']):
-                                st.success("✅ Manutenção finalizada com sucesso!")
-                                st.balloons()
-                                st.cache_data.clear()
-                                st.rerun()
-                    
-                    with col2:
-                        st.write("")  # Espaço para alinhamento
+                    # Formulário para finalização
+                    with st.form(f"finalizar_{info['manut_id']}", clear_on_submit=True):
+                        st.markdown("### 📝 Descreva o Reparo Realizado")
+                        resolucao = st.text_area(
+                            "O que foi feito para resolver?",
+                            placeholder="Ex: Substituída peça X, realizado ajuste Y, testado e aprovado...",
+                            height=120,
+                            help="Descreva detalhadamente os procedimentos realizados para resolver o problema"
+                        )
+                        
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            submitted = st.form_submit_button("✅ Finalizar Manutenção", use_container_width=True)
+                        
+                        if submitted:
+                            if resolucao.strip():
+                                if finish_maintenance(supabase, info['manut_id'], info['equip_id'], resolucao):
+                                    st.success(f"✅ Manutenção de **{info['equipamento_nome']}** finalizada com sucesso!")
+                                    st.balloons()
+                                    st.cache_data.clear()
+                                    st.rerun()
+                            else:
+                                st.error("❌ Por favor, descreva o que foi realizado antes de finalizar.")
         else:
             st.info("ℹ️ Nenhuma manutenção em andamento no momento.")
     
@@ -580,10 +594,50 @@ def pagina_manutencoes(supabase):
                                   title="Manutenções por Setor")
                     st.plotly_chart(fig2, use_container_width=True)
             
-            # Tabela
-            st.subheader("📋 Histórico de Manutenções")
-            colunas_exibir = ['equipamento', 'setor', 'tipo', 'status'] if 'equipamento' in df.columns else ['tipo', 'status']
-            st.dataframe(df[colunas_exibir], use_container_width=True)
+            # Tabela detalhada com descrições
+            st.subheader("📋 Histórico Completo de Manutenções")
+            
+            # Preparar DataFrame para exibição
+            df_display = df.copy()
+            
+            # Formatar datas
+            if 'data_inicio' in df_display.columns:
+                df_display['data_inicio'] = pd.to_datetime(df_display['data_inicio']).dt.strftime('%d/%m/%Y %H:%M')
+            if 'data_fim' in df_display.columns:
+                df_display['data_fim'] = pd.to_datetime(df_display['data_fim'], errors='coerce').dt.strftime('%d/%m/%Y %H:%M')
+            
+            # Selecionar colunas para exibição
+            colunas_exibir = ['equipamento', 'setor', 'tipo', 'status', 'data_inicio', 'descricao']
+            
+            # Adicionar coluna de resolução se existir
+            if 'resolucao' in df_display.columns:
+                colunas_exibir.append('resolucao')
+            
+            # Renomear colunas para melhor visualização
+            rename_dict = {
+                'equipamento': 'Equipamento',
+                'setor': 'Setor',
+                'tipo': 'Tipo',
+                'status': 'Status',
+                'data_inicio': 'Data Início',
+                'descricao': 'Problema Relatado',
+                'resolucao': 'Solução Aplicada'
+            }
+            
+            df_display_final = df_display[colunas_exibir].copy()
+            df_display_final = df_display_final.rename(columns=rename_dict)
+            
+            # Preencher valores vazios em resolução
+            if 'Solução Aplicada' in df_display_final.columns:
+                df_display_final['Solução Aplicada'] = df_display_final['Solução Aplicada'].fillna('(Em andamento)')
+            
+            st.dataframe(df_display_final, use_container_width=True, hide_index=True)
+            
+            # Export CSV com todas as informações
+            csv = df_display_final.to_csv(index=False)
+            st.download_button("📥 Baixar Relatório Completo CSV", csv, 
+                             f"manutencoes_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                             use_container_width=True)
         else:
             st.warning("⚠️ Nenhuma manutenção registrada.")
 
