@@ -528,22 +528,24 @@ def pagina_manutencoes(supabase):
                     # Mostrar detalhes do problema
                     st.info(f"**Problema Relatado:** {info['descricao']}")
                     
-                    # Formulário para finalização
-                    with st.form(f"finalizar_{info['manut_id']}", clear_on_submit=True):
-                        st.markdown("### 📝 Descreva o Reparo Realizado")
-                        resolucao = st.text_area(
-                            "O que foi feito para resolver?",
-                            placeholder="Ex: Substituída peça X, realizado ajuste Y, testado e aprovado...",
-                            height=120,
-                            help="Descreva detalhadamente os procedimentos realizados para resolver o problema"
-                        )
-                        
-                        col1, col2 = st.columns([3, 1])
-                        with col1:
-                            submitted = st.form_submit_button("✅ Finalizar Manutenção", use_container_width=True)
-                        
-                        if submitted:
-                            if resolucao.strip():
+                    st.markdown("---")
+                    
+                    # Formulário de finalização FORA do expander
+                    st.markdown("### 📝 Descreva o Reparo Realizado")
+                    
+                    resolucao = st.text_area(
+                        "O que foi feito para resolver o problema?",
+                        placeholder="Ex: Substituída peça X, realizado ajuste Y, testado e aprovado funcionando...",
+                        height=150,
+                        key=f"resolucao_{info['manut_id']}",
+                        help="Descreva detalhadamente os procedimentos realizados"
+                    )
+                    
+                    col1, col2, col3 = st.columns([2, 1, 1])
+                    
+                    with col1:
+                        if st.button("✅ Finalizar Manutenção", type="primary", use_container_width=True, key=f"btn_finalizar_{info['manut_id']}"):
+                            if resolucao and resolucao.strip():
                                 if finish_maintenance(supabase, info['manut_id'], info['equip_id'], resolucao):
                                     st.success(f"✅ Manutenção de **{info['equipamento_nome']}** finalizada com sucesso!")
                                     st.balloons()
@@ -551,6 +553,9 @@ def pagina_manutencoes(supabase):
                                     st.rerun()
                             else:
                                 st.error("❌ Por favor, descreva o que foi realizado antes de finalizar.")
+                    
+                    with col2:
+                        st.write("")  # Espaçamento
         else:
             st.info("ℹ️ Nenhuma manutenção em andamento no momento.")
     
