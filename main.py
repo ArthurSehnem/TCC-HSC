@@ -265,6 +265,34 @@ def calcular_metricas(df_equip, df_manut):
         'disponibilidade': disponibilidade, 'manut_mes': manut_mes
     }
 
+def calcular_tempo_parada(data_inicio, data_fim):
+    """Calcula o tempo de parada em dias, horas e minutos"""
+    if pd.isna(data_fim):
+        # Manutenção ainda em andamento
+        delta = datetime.now() - pd.to_datetime(data_inicio)
+    else:
+        delta = pd.to_datetime(data_fim) - pd.to_datetime(data_inicio)
+    
+    dias = delta.days
+    horas = delta.seconds // 3600
+    minutos = (delta.seconds % 3600) // 60
+    
+    if dias > 0:
+        return f"{dias}d {horas}h {minutos}min"
+    elif horas > 0:
+        return f"{horas}h {minutos}min"
+    else:
+        return f"{minutos}min"
+
+def calcular_tempo_parada_total(data_inicio, data_fim):
+    """Retorna tempo de parada em horas (float) para cálculos"""
+    if pd.isna(data_fim):
+        delta = datetime.now() - pd.to_datetime(data_inicio)
+    else:
+        delta = pd.to_datetime(data_fim) - pd.to_datetime(data_inicio)
+    
+    return delta.total_seconds() / 3600  # Retorna em horas
+
 # -------------------
 # Páginas
 # -------------------
@@ -515,7 +543,9 @@ def pagina_manutencoes(supabase):
                         'manut_id': m['id'],
                         'equip_id': m['equipamento_id'],
                         'descricao': m.get('descricao', 'Sem descrição'),
-                        'equipamento_nome': eq['nome']
+                        'equipamento_nome': eq['nome'],
+                        'data_inicio': m['data_inicio'],
+                        'tipo': m['tipo']
                     })
             
             if manut_info:
@@ -525,12 +555,29 @@ def pagina_manutencoes(supabase):
                 if selecionada:
                     info = manut_dict[selecionada]
                     
-                    # Mostrar detalhes do problema
+                    # Calcular tempo decorrido
+                    tempo_parada = calcular_tempo_parada(info['data_inicio'], None)
+                    data_inicio_fmt = pd.to_datetime(info['data_inicio']).strftime('%d/%m/%Y %H:%M')
+                    
+                    # Exibir informações em colunas
+                    col_info1, col_info2 = st.columns(2)
+                    
+                    with col_info1:
+                        st.info(f"**Equipamento:** {info['equipamento_nome']}\n\n"
+                               f"**Tipo:** {info['tipo']}\n\n"
+                               f"**Data Abertura:** {data_inicio_fmt}")
+                    
+                    with col_info2:
+                        # Alerta visual se tempo for longo
+                        tempo_class = "🚨" if (datetime.now() - pd.to_datetime(info['data_inicio'])).days > 7 else "⏱️"
+                        st.warning(f"{tempo_class} **Tempo de Parada**\n\n"
+                                  f"# {tempo_parada}")
+                    
                     st.info(f"**Problema Relatado:** {info['descricao']}")
                     
                     st.markdown("---")
                     
-                    # Formulário de finalização FORA do expander
+                    # Formulário de finalização
                     st.markdown("### 📝 Descreva o Reparo Realizado")
                     
                     resolucao = st.text_area(
@@ -553,9 +600,6 @@ def pagina_manutencoes(supabase):
                                     st.rerun()
                             else:
                                 st.error("❌ Por favor, descreva o que foi realizado antes de finalizar.")
-                    
-                    with col2:
-                        st.write("")  # Espaçamento
         else:
             st.info("ℹ️ Nenhuma manutenção em andamento no momento.")
     
@@ -599,25 +643,35 @@ def pagina_manutencoes(supabase):
                                   title="Manutenções por Setor")
                     st.plotly_chart(fig2, use_container_width=True)
             
-            # Tabela detalhada com descrições
+            # Tabela detalhada com descrições e tempo de parada
             st.subheader("📋 Histórico Completo de Manutenções")
-            
+
             # Preparar DataFrame para exibição
             df_display = df.copy()
-            
+
+            # Calcular tempo de parada
+            df_display['tempo_parada_horas'] = df_display.apply(
+                lambda row: calcular_tempo_parada_total(row['data_inicio'], row.get('data_fim')), 
+                axis=1
+            )
+            df_display['tempo_parada'] = df_display.apply(
+                lambda row: calcular_tempo_parada(row['data_inicio'], row.get('data_fim')), 
+                axis=1
+            )
+
             # Formatar datas
             if 'data_inicio' in df_display.columns:
                 df_display['data_inicio'] = pd.to_datetime(df_display['data_inicio']).dt.strftime('%d/%m/%Y %H:%M')
             if 'data_fim' in df_display.columns:
                 df_display['data_fim'] = pd.to_datetime(df_display['data_fim'], errors='coerce').dt.strftime('%d/%m/%Y %H:%M')
-            
+
             # Selecionar colunas para exibição
-            colunas_exibir = ['equipamento', 'setor', 'tipo', 'status', 'data_inicio', 'descricao']
-            
+            colunas_exibir = ['equipamento', 'setor', 'tipo', 'status', 'data_inicio', 'data_fim', 'tempo_parada', 'descricao']
+
             # Adicionar coluna de resolução se existir
             if 'resolucao' in df_display.columns:
                 colunas_exibir.append('resolucao')
-            
+
             # Renomear colunas para melhor visualização
             rename_dict = {
                 'equipamento': 'Equipamento',
@@ -625,17 +679,31 @@ def pagina_manutencoes(supabase):
                 'tipo': 'Tipo',
                 'status': 'Status',
                 'data_inicio': 'Data Início',
+                'data_fim': 'Data Conclusão',
+                'tempo_parada': 'Tempo de Parada',
                 'descricao': 'Problema Relatado',
                 'resolucao': 'Solução Aplicada'
             }
-            
+
             df_display_final = df_display[colunas_exibir].copy()
             df_display_final = df_display_final.rename(columns=rename_dict)
-            
-            # Preencher valores vazios em resolução
+
+            # Preencher valores vazios
+            if 'Data Conclusão' in df_display_final.columns:
+                df_display_final['Data Conclusão'] = df_display_final['Data Conclusão'].fillna('(Em andamento)')
             if 'Solução Aplicada' in df_display_final.columns:
                 df_display_final['Solução Aplicada'] = df_display_final['Solução Aplicada'].fillna('(Em andamento)')
-            
+
+            # Adicionar métricas de tempo
+            col_m1, col_m2, col_m3 = st.columns(3)
+            concluidas = df_display[df_display['status'] == 'Concluída']
+            if not concluidas.empty:
+                tempo_medio = concluidas['tempo_parada_horas'].mean()
+                tempo_max = concluidas['tempo_parada_horas'].max()
+                col_m1.metric("⏱️ Tempo Médio de Parada", f"{tempo_medio:.1f}h")
+                col_m2.metric("⏱️ Maior Tempo de Parada", f"{tempo_max:.1f}h")
+                col_m3.metric("📊 Total de Horas Paradas", f"{concluidas['tempo_parada_horas'].sum():.1f}h")
+
             st.dataframe(df_display_final, use_container_width=True, hide_index=True)
             
             # Export CSV com todas as informações
@@ -727,6 +795,69 @@ def pagina_dashboard(supabase):
     resumo_setor['Em Manutenção'] = resumo_setor['Total'] - resumo_setor['Ativos']
     
     st.dataframe(resumo_setor, use_container_width=True, hide_index=True)
+
+    # Análise de tempo de parada
+    if not df_manut.empty:
+        st.markdown("---")
+        st.subheader("⏱️ Análise de Tempo de Parada")
+        
+        # Calcular tempos de parada
+        df_manut['tempo_parada_horas'] = df_manut.apply(
+            lambda row: calcular_tempo_parada_total(row['data_inicio'], row.get('data_fim')), 
+            axis=1
+        )
+        
+        # Apenas manutenções concluídas
+        df_concluidas = df_manut[df_manut['status'] == 'Concluída'].copy()
+        
+        if not df_concluidas.empty:
+            # Adicionar nome do equipamento
+            equipamentos = fetch_equipamentos(supabase)
+            for idx, row in df_concluidas.iterrows():
+                eq = next((e for e in equipamentos if e['id'] == row['equipamento_id']), None)
+                if eq:
+                    df_concluidas.at[idx, 'equipamento'] = eq['nome']
+                    df_concluidas.at[idx, 'setor'] = eq['setor']
+            
+            col_t1, col_t2 = st.columns(2)
+            
+            with col_t1:
+                # Tempo médio por tipo de manutenção
+                tempo_por_tipo = df_concluidas.groupby('tipo')['tempo_parada_horas'].mean().reset_index()
+                tempo_por_tipo.columns = ['Tipo', 'Tempo Médio (horas)']
+                tempo_por_tipo['Tempo Médio (horas)'] = tempo_por_tipo['Tempo Médio (horas)'].round(1)
+                
+                fig_tempo_tipo = px.bar(tempo_por_tipo, x='Tipo', y='Tempo Médio (horas)',
+                                        title="Tempo Médio de Parada por Tipo",
+                                        color='Tempo Médio (horas)',
+                                        color_continuous_scale="Reds")
+                st.plotly_chart(fig_tempo_tipo, use_container_width=True)
+            
+            with col_t2:
+                # Tempo médio por setor
+                if 'setor' in df_concluidas.columns:
+                    tempo_por_setor = df_concluidas.groupby('setor')['tempo_parada_horas'].mean().reset_index()
+                    tempo_por_setor.columns = ['Setor', 'Tempo Médio (horas)']
+                    tempo_por_setor['Tempo Médio (horas)'] = tempo_por_setor['Tempo Médio (horas)'].round(1)
+                    
+                    fig_tempo_setor = px.bar(tempo_por_setor, x='Setor', y='Tempo Médio (horas)',
+                                            title="Tempo Médio de Parada por Setor",
+                                            color='Tempo Médio (horas)',
+                                            color_continuous_scale="Oranges")
+                    st.plotly_chart(fig_tempo_setor, use_container_width=True)
+            
+            # Top 5 equipamentos com maior tempo de parada total
+            st.subheader("🔴 Equipamentos com Maior Tempo de Parada (Total)")
+            tempo_por_equip = df_concluidas.groupby('equipamento')['tempo_parada_horas'].sum().reset_index()
+            tempo_por_equip.columns = ['Equipamento', 'Tempo Total (horas)']
+            tempo_por_equip = tempo_por_equip.sort_values('Tempo Total (horas)', ascending=False).head(5)
+            tempo_por_equip['Tempo Total (horas)'] = tempo_por_equip['Tempo Total (horas)'].round(1)
+            
+            fig_top_parada = px.bar(tempo_por_equip, x='Equipamento', y='Tempo Total (horas)',
+                                   title="Top 5 Equipamentos - Maior Tempo Parado",
+                                   color='Tempo Total (horas)',
+                                   color_continuous_scale="Reds")
+            st.plotly_chart(fig_top_parada, use_container_width=True)
 
 # -------------------
 # Main
