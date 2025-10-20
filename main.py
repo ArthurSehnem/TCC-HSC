@@ -3,7 +3,7 @@ import base64
 from supabase import create_client
 import pandas as pd
 from datetime import datetime, timedelta
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Tuple
 import plotly.express as px
 import plotly.graph_objects as go
 
@@ -18,7 +18,6 @@ st.set_page_config(
 # Constantes
 SETORES_PADRAO = ["Hemodiálise", "Lavanderia", "Instrumentais Cirúrgicos", "Emergência"]
 TIPOS_MANUTENCAO = ["Preventiva", "Corretiva", "Urgente"]
-STATUS_EQUIPAMENTOS = ["Ativo", "Inativo"]
 
 # -------------------
 # Sistema de Login
@@ -79,13 +78,110 @@ def init_supabase():
         st.error(f"❌ Erro ao conectar com o banco: {e}")
         return None
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=600)  # 10 minutos (logo não muda)
 def load_logo():
     try:
         with open("logo.png", "rb") as f:
             return base64.b64encode(f.read()).decode()
     except FileNotFoundError:
         return None
+
+# -------------------
+# Funções de banco com cache
+# -------------------
+@st.cache_data(ttl=60, show_spinner=False)
+def fetch_equipamentos_cached(_supabase) -> List[Dict]:
+    """Cache de 1 minuto para equipamentos"""
+    try:
+        response = _supabase.table("equipamentos").select("*").execute()
+        return response.data if response.data else []
+    except Exception as e:
+        st.error(f"❌ Erro ao carregar equipamentos: {e}")
+        return []
+
+@st.cache_data(ttl=60, show_spinner=False)
+def fetch_manutencoes_cached(_supabase) -> List[Dict]:
+    """Cache de 1 minuto para manutenções"""
+    try:
+        response = _supabase.table("manutencoes").select("*").execute()
+        return response.data if response.data else []
+    except Exception as e:
+        st.error(f"❌ Erro ao carregar manutenções: {e}")
+        return []
+
+def clear_cache():
+    """Limpa todos os caches de dados"""
+    fetch_equipamentos_cached.clear()
+    fetch_manutencoes_cached.clear()
+
+# -------------------
+# Funções auxiliares otimizadas
+# -------------------
+def preparar_dataframes(supabase) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Carrega e prepara DataFrames com conversões de tipo otimizadas"""
+    df_equip = pd.DataFrame(fetch_equipamentos_cached(supabase))
+    df_manut = pd.DataFrame(fetch_manutencoes_cached(supabase))
+    
+    # Converter datas uma única vez
+    if not df_manut.empty and 'data_inicio' in df_manut.columns:
+        df_manut['data_inicio'] = pd.to_datetime(df_manut['data_inicio'], errors='coerce')
+        if 'data_fim' in df_manut.columns:
+            df_manut['data_fim'] = pd.to_datetime(df_manut['data_fim'], errors='coerce')
+    
+    return df_equip, df_manut
+
+def adicionar_info_equipamentos(df_manut: pd.DataFrame, df_equip: pd.DataFrame) -> pd.DataFrame:
+    """Adiciona informações de equipamentos usando merge (vetorizado)"""
+    if df_manut.empty or df_equip.empty:
+        return df_manut
+    
+    return df_manut.merge(
+        df_equip[['id', 'nome', 'setor']], 
+        left_on='equipamento_id', 
+        right_on='id', 
+        how='left',
+        suffixes=('', '_equip')
+    ).rename(columns={'nome': 'equipamento'}).drop(columns=['id_equip'], errors='ignore')
+
+def calcular_tempo_parada_vetorizado(df: pd.DataFrame) -> pd.DataFrame:
+    """Calcula tempo de parada usando operações vetorizadas do Pandas"""
+    if df.empty:
+        return df
+    
+    # Garantir que datas estão no formato correto
+    df['data_inicio'] = pd.to_datetime(df['data_inicio'], errors='coerce')
+    df['data_fim'] = pd.to_datetime(df['data_fim'], errors='coerce')
+    
+    # Usar data_fim se existe, senão usar now()
+    df['data_fim_calc'] = df['data_fim'].fillna(pd.Timestamp.now())
+    
+    # Calcular delta
+    delta = df['data_fim_calc'] - df['data_inicio']
+    
+    # Extrair componentes (vetorizado)
+    df['tempo_parada_horas'] = delta.dt.total_seconds() / 3600
+    
+    # Formatar string de tempo
+    dias = delta.dt.days
+    segundos_restantes = delta.dt.seconds
+    horas = segundos_restantes // 3600
+    minutos = (segundos_restantes % 3600) // 60
+    
+    # Criar strings formatadas condicionalmente
+    def formatar_tempo(d, h, m):
+        if d > 0:
+            return f"{d}d {h}h {m}min"
+        elif h > 0:
+            return f"{h}h {m}min"
+        else:
+            return f"{m}min"
+    
+    df['tempo_parada'] = [formatar_tempo(d, h, m) for d, h, m in zip(dias, horas, minutos)]
+    
+    # Limpar coluna temporária
+    df.drop(columns=['data_fim_calc'], inplace=True, errors='ignore')
+    
+    return df
 
 # -------------------
 # Sidebar
@@ -114,24 +210,8 @@ def show_sidebar():
     return menu.split(" ", 1)[1]  # Remove emoji do retorno
 
 # -------------------
-# Funções de banco
+# Funções de validação e banco
 # -------------------
-def fetch_equipamentos(supabase) -> List[Dict]:
-    try:
-        response = supabase.table("equipamentos").select("*").execute()
-        return response.data if response.data else []
-    except Exception as e:
-        st.error(f"❌ Erro ao carregar equipamentos: {e}")
-        return []
-
-def fetch_manutencoes(supabase) -> List[Dict]:
-    try:
-        response = supabase.table("manutencoes").select("*").execute()
-        return response.data if response.data else []
-    except Exception as e:
-        st.error(f"❌ Erro ao carregar manutenções: {e}")
-        return []
-
 def validate_equipment_data(nome: str, setor: str, numero_serie: str) -> Optional[str]:
     if not nome.strip(): return "❌ Nome é obrigatório"
     if not setor.strip(): return "❌ Setor é obrigatório"
@@ -154,7 +234,6 @@ def insert_equipment(supabase, nome: str, setor: str, numero_serie: str) -> bool
 
 def start_maintenance(supabase, equipamento_id: int, tipo: str, descricao: str) -> bool:
     try:
-        # Inserir manutenção
         manut_response = supabase.table("manutencoes").insert({
             "equipamento_id": equipamento_id,
             "tipo": tipo,
@@ -164,7 +243,6 @@ def start_maintenance(supabase, equipamento_id: int, tipo: str, descricao: str) 
         }).execute()
         
         if manut_response.data:
-            # Atualizar status do equipamento
             supabase.table("equipamentos").update({"status": "Em manutenção"}).eq("id", equipamento_id).execute()
             return True
         return False
@@ -174,7 +252,6 @@ def start_maintenance(supabase, equipamento_id: int, tipo: str, descricao: str) 
 
 def finish_maintenance(supabase, manut_id: int, equipamento_id: int, resolucao: str) -> bool:
     try:
-        # Finalizar manutenção com descrição da resolução
         manut_response = supabase.table("manutencoes").update({
             "data_fim": datetime.now().isoformat(),
             "status": "Concluída",
@@ -182,7 +259,6 @@ def finish_maintenance(supabase, manut_id: int, equipamento_id: int, resolucao: 
         }).eq("id", manut_id).execute()
         
         if manut_response.data:
-            # Retornar equipamento para ativo
             supabase.table("equipamentos").update({"status": "Ativo"}).eq("id", equipamento_id).execute()
             return True
         return False
@@ -191,42 +267,40 @@ def finish_maintenance(supabase, manut_id: int, equipamento_id: int, resolucao: 
         return False
 
 # -------------------
-# Sistema de alertas
+# Sistema de alertas otimizado
 # -------------------
-def gerar_alertas(df_equip, df_manut):
+def gerar_alertas(df_equip: pd.DataFrame, df_manut: pd.DataFrame) -> Tuple[List[str], List[str], List[str]]:
     if df_equip.empty or df_manut.empty:
         return [], [], []
     
-    df_manut['data_inicio'] = pd.to_datetime(df_manut['data_inicio'])
     alertas_criticos, alertas_importantes, alertas_info = [], [], []
     
-    # 1. Equipamentos com muitas manutenções (4+ em 3 meses)
+    # 1. Equipamentos com muitas manutenções (4+ em 3 meses) - vetorizado
     tres_meses = datetime.now() - timedelta(days=90)
     manut_3m = df_manut[df_manut['data_inicio'] >= tres_meses]
     problem_equip = manut_3m.groupby('equipamento_id').size()
+    
+    # Criar lookup dict para nomes (mais rápido que .values)
+    equip_dict = df_equip.set_index('id')['nome'].to_dict()
+    
     for eq_id, qtd in problem_equip.items():
-        if qtd >= 4:
-            eq_nome = df_equip[df_equip['id'] == eq_id]['nome'].values
-            if len(eq_nome) > 0:
-                alertas_criticos.append(f"🚨 **{eq_nome[0]}** teve {qtd} manutenções em 3 meses")
+        if qtd >= 4 and eq_id in equip_dict:
+            alertas_criticos.append(f"🚨 **{equip_dict[eq_id]}** teve {qtd} manutenções em 3 meses")
     
     # 2. Manutenções urgentes recorrentes
-    urgentes = df_manut[df_manut['tipo'] == 'Urgente']
-    urgentes_por_equip = urgentes.groupby('equipamento_id').size()
+    urgentes_por_equip = df_manut[df_manut['tipo'] == 'Urgente'].groupby('equipamento_id').size()
     for eq_id, qtd in urgentes_por_equip.items():
-        if qtd >= 2:
-            eq_nome = df_equip[df_equip['id'] == eq_id]['nome'].values
-            if len(eq_nome) > 0:
-                alertas_criticos.append(f"🚨 **{eq_nome[0]}** teve {qtd} manutenções urgentes")
+        if qtd >= 2 and eq_id in equip_dict:
+            alertas_criticos.append(f"🚨 **{equip_dict[eq_id]}** teve {qtd} manutenções urgentes")
     
     # 3. Manutenções longas (mais de 7 dias)
-    em_andamento = df_manut[df_manut['status'] == 'Em andamento']
-    for idx, row in em_andamento.iterrows():
-        dias = (datetime.now() - row['data_inicio']).days
-        if dias > 7:
-            eq_nome = df_equip[df_equip['id'] == row['equipamento_id']]['nome'].values
-            if len(eq_nome) > 0:
-                alertas_criticos.append(f"🚨 **{eq_nome[0]}** em manutenção há {dias} dias")
+    em_andamento = df_manut[df_manut['status'] == 'Em andamento'].copy()
+    if not em_andamento.empty:
+        em_andamento['dias'] = (datetime.now() - em_andamento['data_inicio']).dt.days
+        longas = em_andamento[em_andamento['dias'] > 7]
+        for _, row in longas.iterrows():
+            if row['equipamento_id'] in equip_dict:
+                alertas_criticos.append(f"🚨 **{equip_dict[row['equipamento_id']]}** em manutenção há {row['dias']} dias")
     
     # 4. Baixa disponibilidade por setor
     dispo_setor = df_equip.groupby('setor')['status'].apply(lambda x: (x == 'Ativo').sum() / len(x) * 100)
@@ -238,25 +312,24 @@ def gerar_alertas(df_equip, df_manut):
     seis_meses = datetime.now() - timedelta(days=180)
     preventivas_6m = df_manut[(df_manut['tipo'] == 'Preventiva') & (df_manut['data_inicio'] >= seis_meses)]['equipamento_id'].unique()
     sem_preventiva = df_equip[(~df_equip['id'].isin(preventivas_6m)) & (df_equip['status'] == 'Ativo')]
-    for idx, row in sem_preventiva.head(5).iterrows():
+    for _, row in sem_preventiva.head(5).iterrows():
         alertas_info.append(f"💡 **{row['nome']}** sem manutenção preventiva há 6+ meses")
     
     return alertas_criticos, alertas_importantes, alertas_info
 
-def calcular_metricas(df_equip, df_manut):
+def calcular_metricas(df_equip: pd.DataFrame, df_manut: pd.DataFrame) -> Dict:
     if df_equip.empty:
         return {}
     
     total = len(df_equip)
-    ativos = len(df_equip[df_equip['status'] == 'Ativo'])
-    manutencao = len(df_equip[df_equip['status'] == 'Em manutenção'])
+    ativos = (df_equip['status'] == 'Ativo').sum()
+    manutencao = (df_equip['status'] == 'Em manutenção').sum()
     disponibilidade = (ativos / total * 100) if total > 0 else 0
     
     # Manutenções último mês
     if not df_manut.empty:
-        df_manut['data_inicio'] = pd.to_datetime(df_manut['data_inicio'])
         ultimo_mes = datetime.now() - timedelta(days=30)
-        manut_mes = len(df_manut[df_manut['data_inicio'] >= ultimo_mes])
+        manut_mes = (df_manut['data_inicio'] >= ultimo_mes).sum()
     else:
         manut_mes = 0
     
@@ -265,43 +338,13 @@ def calcular_metricas(df_equip, df_manut):
         'disponibilidade': disponibilidade, 'manut_mes': manut_mes
     }
 
-def calcular_tempo_parada(data_inicio, data_fim):
-    """Calcula o tempo de parada em dias, horas e minutos"""
-    if pd.isna(data_fim):
-        # Manutenção ainda em andamento
-        delta = datetime.now() - pd.to_datetime(data_inicio)
-    else:
-        delta = pd.to_datetime(data_fim) - pd.to_datetime(data_inicio)
-    
-    dias = delta.days
-    horas = delta.seconds // 3600
-    minutos = (delta.seconds % 3600) // 60
-    
-    if dias > 0:
-        return f"{dias}d {horas}h {minutos}min"
-    elif horas > 0:
-        return f"{horas}h {minutos}min"
-    else:
-        return f"{minutos}min"
-
-def calcular_tempo_parada_total(data_inicio, data_fim):
-    """Retorna tempo de parada em horas (float) para cálculos"""
-    if pd.isna(data_fim):
-        delta = datetime.now() - pd.to_datetime(data_inicio)
-    else:
-        delta = pd.to_datetime(data_fim) - pd.to_datetime(data_inicio)
-    
-    return delta.total_seconds() / 3600  # Retorna em horas
-
 # -------------------
 # Páginas
 # -------------------
 def pagina_inicial(supabase):
     st.title("Sistema de Manutenção HSC")
     
-    # Carregar dados
-    df_equip = pd.DataFrame(fetch_equipamentos(supabase))
-    df_manut = pd.DataFrame(fetch_manutencoes(supabase))
+    df_equip, df_manut = preparar_dataframes(supabase)
     
     if df_equip.empty:
         st.warning("⚠️ Nenhum equipamento cadastrado. Comece adicionando equipamentos na aba **Equipamentos**!")
@@ -330,7 +373,6 @@ def pagina_inicial(supabase):
     with col1:
         st.metric("⚙️ Total de Equipamentos", metricas["total"])
     with col2:
-        color = "normal" if metricas["disponibilidade"] >= 80 else "inverse"
         st.metric("📊 Disponibilidade", f"{metricas['disponibilidade']:.1f}%")
     with col3:
         st.metric("✅ Equipamentos Ativos", metricas["ativos"])
@@ -345,28 +387,23 @@ def pagina_inicial(supabase):
         
         st.subheader("🚨 Alertas Inteligentes")
         
-        # Alertas críticos
         if criticos:
             st.error("**CRÍTICOS - Ação Imediata Necessária:**")
             for alerta in criticos:
                 st.write(f"• {alerta}")
         
-        # Alertas importantes
         if importantes:
             with st.expander("⚠️ **Alertas Importantes**", expanded=not criticos):
                 for alerta in importantes:
                     st.write(f"• {alerta}")
         
-        # Alertas informativos
         if info:
             with st.expander("💡 **Alertas Informativos**"):
                 for alerta in info:
                     st.write(f"• {alerta}")
         
-        # Sistema OK
         if not any([criticos, importantes, info]):
             st.success("🎉 **Sistema Operacional** - Todos os equipamentos funcionando normalmente!")
-    
 
 def pagina_equipamentos(supabase):
     st.title("Gestão de Equipamentos")
@@ -393,18 +430,17 @@ def pagina_equipamentos(supabase):
                 if error:
                     st.error(error)
                 else:
-                    # Sempre cadastra como "Ativo"
                     if insert_equipment(supabase, nome, setor, numero_serie):
                         st.success(f"✅ **{nome}** cadastrado com sucesso!")
                         st.balloons()
-                        st.cache_data.clear()
-
+                        clear_cache()
+                        st.rerun()
     
     # Tab 2 - Gerenciar
     with tab2:
         st.subheader("Gerenciar Equipamentos Existentes")
 
-        equipamentos = fetch_equipamentos(supabase)
+        equipamentos = fetch_equipamentos_cached(supabase)
         if equipamentos:
             busca = st.text_input("🔍 Buscar equipamento", placeholder="Digite nome ou setor...")
 
@@ -432,14 +468,12 @@ def pagina_equipamentos(supabase):
                         st.info(f"**Equipamento:** {equip['nome']}\n\n**Setor:** {equip['setor']}\n\n**Série:** {equip['numero_serie']}\n\n**Status Atual:** {equip['status']}")
 
                     with col2:
-                        # Permitir apenas marcar como Inativo se ainda não estiver inativo
                         if equip['status'] != 'Inativo':
-                            novo_status = "Inativo"
-                            if st.button(f"🔄 Marcar como {novo_status}", use_container_width=True):
+                            if st.button("🔄 Marcar como Inativo", use_container_width=True):
                                 try:
-                                    supabase.table("equipamentos").update({"status": novo_status}).eq("id", equip['id']).execute()
-                                    st.success(f"✅ Status alterado para **{novo_status}**!")
-                                    st.cache_data.clear()
+                                    supabase.table("equipamentos").update({"status": "Inativo"}).eq("id", equip['id']).execute()
+                                    st.success("✅ Status alterado para **Inativo**!")
+                                    clear_cache()
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"❌ Erro ao alterar status: {e}")
@@ -450,28 +484,26 @@ def pagina_equipamentos(supabase):
     with tab3:
         st.subheader("Relatórios de Equipamentos")
         
-        equipamentos = fetch_equipamentos(supabase)
-        if equipamentos:
-            df = pd.DataFrame(equipamentos)
-            
+        df_equip, _ = preparar_dataframes(supabase)
+        if not df_equip.empty:
             # Métricas
             col1, col2, col3 = st.columns(3)
-            col1.metric("Total", len(df))
-            col2.metric("Ativos", len(df[df['status'] == 'Ativo']))
-            col3.metric("Em Manutenção", len(df[df['status'] == 'Em manutenção']))
+            col1.metric("Total", len(df_equip))
+            col2.metric("Ativos", (df_equip['status'] == 'Ativo').sum())
+            col3.metric("Em Manutenção", (df_equip['status'] == 'Em manutenção').sum())
             
             # Gráficos
             col_g1, col_g2 = st.columns(2)
             
             with col_g1:
-                setor_counts = df['setor'].value_counts().reset_index()
+                setor_counts = df_equip['setor'].value_counts().reset_index()
                 setor_counts.columns = ['Setor', 'Quantidade']
                 fig1 = px.bar(setor_counts, x='Setor', y='Quantidade', 
                               title="Equipamentos por Setor")
                 st.plotly_chart(fig1, use_container_width=True)
             
             with col_g2:
-                status_counts = df['status'].value_counts().reset_index()
+                status_counts = df_equip['status'].value_counts().reset_index()
                 status_counts.columns = ['Status', 'Quantidade']
                 fig2 = px.bar(status_counts, x='Status', y='Quantidade', 
                               title="Equipamentos por Status")
@@ -479,10 +511,10 @@ def pagina_equipamentos(supabase):
             
             # Tabela
             st.subheader("Lista Completa")
-            st.dataframe(df[['nome', 'setor', 'numero_serie', 'status']], use_container_width=True)
+            st.dataframe(df_equip[['nome', 'setor', 'numero_serie', 'status']], use_container_width=True, hide_index=True)
             
             # Export
-            csv = df.to_csv(index=False)
+            csv = df_equip.to_csv(index=False)
             st.download_button("📥 Baixar Relatório CSV", csv, 
                              f"equipamentos_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
                              use_container_width=True)
@@ -496,16 +528,14 @@ def pagina_manutencoes(supabase):
     with tab1:
         st.subheader("Abrir Nova Manutenção")
         
-        equipamentos_ativos = [e for e in fetch_equipamentos(supabase) if e['status'] == "Ativo"]
+        equipamentos_ativos = [e for e in fetch_equipamentos_cached(supabase) if e['status'] == "Ativo"]
         
         if equipamentos_ativos:
             with st.form("abrir_manut", clear_on_submit=True):
-                
                 equip_options = [f"{e['nome']} - {e['setor']}" for e in equipamentos_ativos]
                 equip_dict = {opt: equipamentos_ativos[i]['id'] for i, opt in enumerate(equip_options)}
                 equipamento = st.selectbox("Selecionar Equipamento:", equip_options)
                 tipo = st.selectbox("Tipo de Manutenção:", TIPOS_MANUTENCAO)
-
                 descricao = st.text_area("Descrição do Problema:", 
                                            placeholder="Descreva o problema ou serviço necessário...",
                                            height=100)
@@ -516,7 +546,8 @@ def pagina_manutencoes(supabase):
                     if start_maintenance(supabase, equip_dict[equipamento], tipo, descricao):
                         st.success(f"✅ Manutenção **{tipo}** aberta para **{equipamento.split(' - ')[0]}**!")
                         st.balloons()
-                        st.cache_data.clear()
+                        clear_cache()
+                        st.rerun()
                 elif submitted:
                     st.error("❌ Preencha todos os campos obrigatórios.")
         else:
@@ -526,80 +557,74 @@ def pagina_manutencoes(supabase):
     with tab2:
         st.subheader("Finalizar Manutenções em Andamento")
         
-        manutencoes_abertas = [m for m in fetch_manutencoes(supabase) if m['status'] == "Em andamento"]
+        df_equip, df_manut = preparar_dataframes(supabase)
+        manutencoes_abertas = df_manut[df_manut['status'] == "Em andamento"]
         
-        if manutencoes_abertas:
-            equipamentos = fetch_equipamentos(supabase)
+        if not manutencoes_abertas.empty:
+            # Adicionar info de equipamentos
+            manut_com_equip = adicionar_info_equipamentos(manutencoes_abertas, df_equip)
             
-            # Preparar informações das manutenções
-            manut_info = []
-            for m in manutencoes_abertas:
-                eq = next((e for e in equipamentos if e['id'] == m['equipamento_id']), None)
-                if eq:
-                    dias = (datetime.now() - pd.to_datetime(m['data_inicio'])).days
-                    status_icon = "🚨" if dias > 7 else "🔧"
-                    manut_info.append({
-                        'display': f"{status_icon} {eq['nome']} | {m['tipo']} | {dias} dias",
-                        'manut_id': m['id'],
-                        'equip_id': m['equipamento_id'],
-                        'descricao': m.get('descricao', 'Sem descrição'),
-                        'equipamento_nome': eq['nome'],
-                        'data_inicio': m['data_inicio'],
-                        'tipo': m['tipo']
-                    })
+            # Calcular dias decorridos
+            manut_com_equip['dias'] = (datetime.now() - manut_com_equip['data_inicio']).dt.days
+            manut_com_equip['status_icon'] = manut_com_equip['dias'].apply(lambda x: "🚨" if x > 7 else "🔧")
             
-            if manut_info:
-                manut_dict = {m['display']: m for m in manut_info}
-                selecionada = st.selectbox("🔧 Selecionar Manutenção:", list(manut_dict.keys()))
+            # Criar opções para selectbox
+            manut_com_equip['display'] = manut_com_equip.apply(
+                lambda row: f"{row['status_icon']} {row['equipamento']} | {row['tipo']} | {row['dias']} dias", 
+                axis=1
+            )
+            
+            manut_dict = manut_com_equip.set_index('display').to_dict('index')
+            selecionada = st.selectbox("🔧 Selecionar Manutenção:", list(manut_dict.keys()))
+            
+            if selecionada:
+                info = manut_dict[selecionada]
                 
-                if selecionada:
-                    info = manut_dict[selecionada]
-                    
-                    # Calcular tempo decorrido
-                    tempo_parada = calcular_tempo_parada(info['data_inicio'], None)
-                    data_inicio_fmt = pd.to_datetime(info['data_inicio']).strftime('%d/%m/%Y %H:%M')
-                    
-                    # Exibir informações em colunas
-                    col_info1, col_info2 = st.columns(2)
-                    
-                    with col_info1:
-                        st.info(f"**Equipamento:** {info['equipamento_nome']}\n\n"
-                               f"**Tipo:** {info['tipo']}\n\n"
-                               f"**Data Abertura:** {data_inicio_fmt}")
-                    
-                    with col_info2:
-                        # Alerta visual se tempo for longo
-                        tempo_class = "🚨" if (datetime.now() - pd.to_datetime(info['data_inicio'])).days > 7 else "⏱️"
-                        st.warning(f"{tempo_class} **Tempo de Parada**\n\n"
-                                  f"# {tempo_parada}")
-                    
-                    st.info(f"**Problema Relatado:** {info['descricao']}")
-                    
-                    st.markdown("---")
-                    
-                    # Formulário de finalização
-                    st.markdown("### 📝 Descreva o Reparo Realizado")
-                    
-                    resolucao = st.text_area(
-                        "O que foi feito para resolver o problema?",
-                        placeholder="Ex: Substituída peça X, realizado ajuste Y, testado e aprovado funcionando...",
-                        height=150,
-                        key=f"resolucao_{info['manut_id']}",
-                        help="Descreva detalhadamente os procedimentos realizados"
-                    )
-                    
-                    col1, col2, col3 = st.columns([2, 1, 1])
-                    
-                    with col1:
-                        if st.button("✅ Finalizar Manutenção", type="primary", use_container_width=True, key=f"btn_finalizar_{info['manut_id']}"):
-                            if resolucao and resolucao.strip():
-                                if finish_maintenance(supabase, info['manut_id'], info['equip_id'], resolucao):
-                                    st.success(f"✅ Manutenção de **{info['equipamento_nome']}** finalizada com sucesso!")
-                                    st.balloons()
-                                    st.cache_data.clear()
-                                    st.rerun()
-                            else:
-                                st.error("❌ Por favor, descreva o que foi realizado antes de finalizar.")
+                # Calcular tempo decorrido usando função vetorizada
+                df_temp = pd.DataFrame([info])
+                df_temp = calcular_tempo_parada_vetorizado(df_temp)
+                tempo_parada = df_temp['tempo_parada'].iloc[0]
+                
+                data_inicio_fmt = pd.to_datetime(info['data_inicio']).strftime('%d/%m/%Y %H:%M')
+                
+                # Exibir informações
+                col_info1, col_info2 = st.columns(2)
+                
+                with col_info1:
+                    st.info(f"**Equipamento:** {info['equipamento']}\n\n"
+                           f"**Tipo:** {info['tipo']}\n\n"
+                           f"**Data Abertura:** {data_inicio_fmt}")
+                
+                with col_info2:
+                    tempo_class = "🚨" if info['dias'] > 7 else "⏱️"
+                    st.warning(f"{tempo_class} **Tempo de Parada**\n\n"
+                              f"# {tempo_parada}")
+                
+                st.info(f"**Problema Relatado:** {info.get('descricao', 'Sem descrição')}")
+                
+                st.markdown("---")
+                st.markdown("### 📝 Descreva o Reparo Realizado")
+                
+                resolucao = st.text_area(
+                    "O que foi feito para resolver o problema?",
+                    placeholder="Ex: Substituída peça X, realizado ajuste Y, testado e aprovado funcionando...",
+                    height=150,
+                    key=f"resolucao_{info['id']}",
+                    help="Descreva detalhadamente os procedimentos realizados"
+                )
+                
+                col1, col2, col3 = st.columns([2, 1, 1])
+                
+                with col1:
+                    if st.button("✅ Finalizar Manutenção", type="primary", use_container_width=True, key=f"btn_finalizar_{info['id']}"):
+                        if resolucao and resolucao.strip():
+                            if finish_maintenance(supabase, info['id'], info['equipamento_id'], resolucao):
+                                st.success(f"✅ Manutenção de **{info['equipamento']}** finalizada com sucesso!")
+                                st.balloons()
+                                clear_cache()
+                                st.rerun()
+                        else:
+                            st.error("❌ Por favor, descreva o que foi realizado antes de finalizar.")
         else:
             st.info("ℹ️ Nenhuma manutenção em andamento no momento.")
     
@@ -607,72 +632,54 @@ def pagina_manutencoes(supabase):
     with tab3:
         st.subheader("Relatórios de Manutenções")
         
-        manutencoes = fetch_manutencoes(supabase)
-        if manutencoes:
-            df = pd.DataFrame(manutencoes)
-            equipamentos = fetch_equipamentos(supabase)
+        df_equip, df_manut = preparar_dataframes(supabase)
+        
+        if not df_manut.empty:
+            # Adicionar informações de equipamentos (vetorizado)
+            df_completo = adicionar_info_equipamentos(df_manut, df_equip)
             
-            # Adicionar nomes dos equipamentos
-            for idx, row in df.iterrows():
-                eq = next((e for e in equipamentos if e['id'] == row['equipamento_id']), None)
-                if eq:
-                    df.at[idx, 'equipamento'] = eq['nome']
-                    df.at[idx, 'setor'] = eq['setor']
+            # Calcular tempo de parada (vetorizado)
+            df_completo = calcular_tempo_parada_vetorizado(df_completo)
             
             # Métricas
             col1, col2, col3 = st.columns(3)
-            col1.metric("Total", len(df))
-            col2.metric("Em Andamento", len(df[df['status'] == 'Em andamento']))
-            col3.metric("Concluídas", len(df[df['status'] == 'Concluída']))
+            col1.metric("Total", len(df_completo))
+            col2.metric("Em Andamento", (df_completo['status'] == 'Em andamento').sum())
+            col3.metric("Concluídas", (df_completo['status'] == 'Concluída').sum())
             
             # Gráficos
             col_g1, col_g2 = st.columns(2)
 
             with col_g1:
-                tipo_counts = df['tipo'].value_counts().reset_index()
+                tipo_counts = df_completo['tipo'].value_counts().reset_index()
                 tipo_counts.columns = ['Tipo', 'Quantidade']
                 fig1 = px.bar(tipo_counts, x='Tipo', y='Quantidade', 
                               title="Manutenções por Tipo")
                 st.plotly_chart(fig1, use_container_width=True)
 
             with col_g2:
-                if 'setor' in df.columns:
-                    setor_counts = df['setor'].value_counts().reset_index()
+                if 'setor' in df_completo.columns:
+                    setor_counts = df_completo['setor'].value_counts().reset_index()
                     setor_counts.columns = ['Setor', 'Quantidade']
                     fig2 = px.bar(setor_counts, x='Setor', y='Quantidade', 
                                   title="Manutenções por Setor")
                     st.plotly_chart(fig2, use_container_width=True)
             
-            # Tabela detalhada com descrições e tempo de parada
+            # Tabela detalhada
             st.subheader("📋 Histórico Completo de Manutenções")
 
             # Preparar DataFrame para exibição
-            df_display = df.copy()
-
-            # Calcular tempo de parada
-            df_display['tempo_parada_horas'] = df_display.apply(
-                lambda row: calcular_tempo_parada_total(row['data_inicio'], row.get('data_fim')), 
-                axis=1
-            )
-            df_display['tempo_parada'] = df_display.apply(
-                lambda row: calcular_tempo_parada(row['data_inicio'], row.get('data_fim')), 
-                axis=1
-            )
+            df_display = df_completo.copy()
 
             # Formatar datas
-            if 'data_inicio' in df_display.columns:
-                df_display['data_inicio'] = pd.to_datetime(df_display['data_inicio']).dt.strftime('%d/%m/%Y %H:%M')
-            if 'data_fim' in df_display.columns:
-                df_display['data_fim'] = pd.to_datetime(df_display['data_fim'], errors='coerce').dt.strftime('%d/%m/%Y %H:%M')
+            df_display['data_inicio'] = df_display['data_inicio'].dt.strftime('%d/%m/%Y %H:%M')
+            df_display['data_fim'] = df_display['data_fim'].dt.strftime('%d/%m/%Y %H:%M')
 
-            # Selecionar colunas para exibição
+            # Selecionar e renomear colunas
             colunas_exibir = ['equipamento', 'setor', 'tipo', 'status', 'data_inicio', 'data_fim', 'tempo_parada', 'descricao']
-
-            # Adicionar coluna de resolução se existir
             if 'resolucao' in df_display.columns:
                 colunas_exibir.append('resolucao')
 
-            # Renomear colunas para melhor visualização
             rename_dict = {
                 'equipamento': 'Equipamento',
                 'setor': 'Setor',
@@ -689,24 +696,24 @@ def pagina_manutencoes(supabase):
             df_display_final = df_display_final.rename(columns=rename_dict)
 
             # Preencher valores vazios
-            if 'Data Conclusão' in df_display_final.columns:
-                df_display_final['Data Conclusão'] = df_display_final['Data Conclusão'].fillna('(Em andamento)')
+            df_display_final['Data Conclusão'] = df_display_final['Data Conclusão'].fillna('(Em andamento)')
             if 'Solução Aplicada' in df_display_final.columns:
                 df_display_final['Solução Aplicada'] = df_display_final['Solução Aplicada'].fillna('(Em andamento)')
 
-            # Adicionar métricas de tempo
+            # Métricas de tempo
             col_m1, col_m2, col_m3 = st.columns(3)
             concluidas = df_display[df_display['status'] == 'Concluída']
             if not concluidas.empty:
                 tempo_medio = concluidas['tempo_parada_horas'].mean()
                 tempo_max = concluidas['tempo_parada_horas'].max()
+                total_horas = concluidas['tempo_parada_horas'].sum()
                 col_m1.metric("⏱️ Tempo Médio de Parada", f"{tempo_medio:.1f}h")
                 col_m2.metric("⏱️ Maior Tempo de Parada", f"{tempo_max:.1f}h")
-                col_m3.metric("📊 Total de Horas Paradas", f"{concluidas['tempo_parada_horas'].sum():.1f}h")
+                col_m3.metric("📊 Total de Horas Paradas", f"{total_horas:.1f}h")
 
             st.dataframe(df_display_final, use_container_width=True, hide_index=True)
             
-            # Export CSV com todas as informações
+            # Export
             csv = df_display_final.to_csv(index=False)
             st.download_button("📥 Baixar Relatório Completo CSV", csv, 
                              f"manutencoes_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
@@ -717,8 +724,7 @@ def pagina_manutencoes(supabase):
 def pagina_dashboard(supabase):
     st.title("Dashboard Executivo")
     
-    df_equip = pd.DataFrame(fetch_equipamentos(supabase))
-    df_manut = pd.DataFrame(fetch_manutencoes(supabase))
+    df_equip, df_manut = preparar_dataframes(supabase)
     
     if df_equip.empty:
         st.warning("⚠️ Cadastre equipamentos primeiro para visualizar o dashboard.")
@@ -760,7 +766,6 @@ def pagina_dashboard(supabase):
         with col_g1:
             # Manutenções por tipo (últimos 6 meses)
             seis_meses = datetime.now() - timedelta(days=180)
-            df_manut['data_inicio'] = pd.to_datetime(df_manut['data_inicio'])
             df_recente = df_manut[df_manut['data_inicio'] >= seis_meses]
             
             if not df_recente.empty:
@@ -801,23 +806,15 @@ def pagina_dashboard(supabase):
         st.markdown("---")
         st.subheader("⏱️ Análise de Tempo de Parada")
         
-        # Calcular tempos de parada
-        df_manut['tempo_parada_horas'] = df_manut.apply(
-            lambda row: calcular_tempo_parada_total(row['data_inicio'], row.get('data_fim')), 
-            axis=1
-        )
+        # Calcular tempos de parada (vetorizado)
+        df_manut_completo = calcular_tempo_parada_vetorizado(df_manut.copy())
         
         # Apenas manutenções concluídas
-        df_concluidas = df_manut[df_manut['status'] == 'Concluída'].copy()
+        df_concluidas = df_manut_completo[df_manut_completo['status'] == 'Concluída'].copy()
         
         if not df_concluidas.empty:
-            # Adicionar nome do equipamento
-            equipamentos = fetch_equipamentos(supabase)
-            for idx, row in df_concluidas.iterrows():
-                eq = next((e for e in equipamentos if e['id'] == row['equipamento_id']), None)
-                if eq:
-                    df_concluidas.at[idx, 'equipamento'] = eq['nome']
-                    df_concluidas.at[idx, 'setor'] = eq['setor']
+            # Adicionar informações de equipamentos (vetorizado)
+            df_concluidas = adicionar_info_equipamentos(df_concluidas, df_equip)
             
             col_t1, col_t2 = st.columns(2)
             
