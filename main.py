@@ -824,11 +824,20 @@ def pagina_dashboard(supabase):
                 tempo_por_tipo.columns = ['Tipo', 'Tempo Médio (horas)']
                 tempo_por_tipo['Tempo Médio (horas)'] = tempo_por_tipo['Tempo Médio (horas)'].round(1)
                 
-                fig_tempo_tipo = px.bar(tempo_por_tipo, x='Tipo', y='Tempo Médio (horas)',
-                                        title="Tempo Médio de Parada por Tipo",
-                                        color='Tempo Médio (horas)',
-                                        color_continuous_scale="Reds")
-                st.plotly_chart(fig_tempo_tipo, use_container_width=True)
+                fig_tempo_tipo = px.bar(
+                    tempo_por_tipo,
+                    x='Tipo',
+                    y='Tempo Médio (horas)',
+                    title="Tempo Médio de Parada por Tipo",
+                    color='Tempo Médio (horas)',
+                    color_continuous_scale=[
+                        [0, '#b30000'],   # vermelho escuro já no início
+                        [0.5, '#e60000'], # vermelho médio
+                        [1, '#ff4d4d']    # vermelho claro no topo
+                    ],
+                text='Tempo Médio (horas)'
+                )
+
             
             with col_t2:
                 # Tempo médio por setor
@@ -890,3 +899,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
