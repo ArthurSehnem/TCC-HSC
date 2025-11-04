@@ -860,8 +860,7 @@ def pagina_dashboard(supabase):
             
             fig_top_parada = px.bar(tempo_por_equip, x='Equipamento', y='Tempo Total (horas)',
                                    title="Top 5 Equipamentos - Maior Tempo Parado",
-                                   color='Tempo Total (horas)',
-                                   color_continuous_scale="Reds")
+                                   color='Tempo Total (horas)')
             st.plotly_chart(fig_top_parada, use_container_width=True)
 
 # -------------------
