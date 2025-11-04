@@ -752,8 +752,7 @@ def pagina_dashboard(supabase):
     
     fig_dispo = px.bar(dispo_setor, x='Setor', y='Disponibilidade (%)', 
                        title="Disponibilidade por Setor (%)",
-                       color='Disponibilidade (%)', 
-                       color_continuous_scale="RdYlGn",
+                       color='Disponibilidade (%)',
                        range_color=[0, 100])
     fig_dispo.add_hline(y=75, line_dash="dash", line_color="red", 
                         annotation_text="Meta: 75%")
@@ -819,24 +818,16 @@ def pagina_dashboard(supabase):
             col_t1, col_t2 = st.columns(2)
             
             with col_t1:
-                # Tempo médio por tipo de manutenção
-                tempo_por_tipo = df_concluidas.groupby('tipo')['tempo_parada_horas'].mean().reset_index()
-                tempo_por_tipo.columns = ['Tipo', 'Tempo Médio (horas)']
-                tempo_por_tipo['Tempo Médio (horas)'] = tempo_por_tipo['Tempo Médio (horas)'].round(1)
-                
-                fig_tempo_tipo = px.bar(
-                    tempo_por_tipo,
-                    x='Tipo',
-                    y='Tempo Médio (horas)',
-                    title="Tempo Médio de Parada por Tipo",
-                    color='Tempo Médio (horas)',
-                    color_continuous_scale=[
-                        [0, "#4a0000"],   # vermelho bem escuro (quase preto)
-                        [0.5, "#a80d0d"], # vermelho intermediário forte
-                        [1, "#fc6969"]    # vermelho claro no topo
-                    ],
-                    text='Tempo Médio (horas)'
-                )
+            # Tempo médio por tipo de manutenção 
+                tempo_por_tipo = df_concluidas.groupby('tipo')['tempo_parada_horas'].mean().reset_index() 
+                tempo_por_tipo.columns = ['Tipo', 'Tempo Médio (horas)'] 
+                tempo_por_tipo['Tempo Médio (horas)'] = tempo_por_tipo['Tempo Médio (horas)'].round(1) 
+            
+                fig_tempo_tipo = px.bar(tempo_por_tipo, x='Tipo', y='Tempo Médio (horas)', 
+                title="Tempo Médio de Parada por Tipo", 
+                color='Tempo Médio (horas)') 
+            
+                st.plotly_chart(fig_tempo_tipo, use_container_width=True)
             
             with col_t2:
                 # Tempo médio por setor
