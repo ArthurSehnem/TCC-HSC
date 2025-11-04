@@ -838,8 +838,7 @@ def pagina_dashboard(supabase):
                     
                     fig_tempo_setor = px.bar(tempo_por_setor, x='Setor', y='Tempo Médio (horas)',
                                             title="Tempo Médio de Parada por Setor",
-                                            color='Tempo Médio (horas)',
-                                            color_continuous_scale="Oranges")
+                                            color='Tempo Médio (horas)')
                     st.plotly_chart(fig_tempo_setor, use_container_width=True)
             
             # Top 5 equipamentos com maior tempo de parada total
