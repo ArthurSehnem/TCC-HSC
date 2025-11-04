@@ -831,13 +831,12 @@ def pagina_dashboard(supabase):
                     title="Tempo Médio de Parada por Tipo",
                     color='Tempo Médio (horas)',
                     color_continuous_scale=[
-                        [0, '#b30000'],   # vermelho escuro já no início
-                        [0.5, '#e60000'], # vermelho médio
-                        [1, '#ff4d4d']    # vermelho claro no topo
+                        [0, "#4a0000"],   # vermelho bem escuro (quase preto)
+                        [0.5, "#a80d0d"], # vermelho intermediário forte
+                        [1, "#fc6969"]    # vermelho claro no topo
                     ],
-                text='Tempo Médio (horas)'
+                    text='Tempo Médio (horas)'
                 )
-
             
             with col_t2:
                 # Tempo médio por setor
@@ -899,4 +898,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
