@@ -1,16 +1,41 @@
-## Sistema de Monitoramento de Falhas em Equipamentos Hospitalares
+**📄 README: Sistema de Gestão de Manutenção Hospitalar (HSC) 🏥**
 
-Este projeto tem como objetivo desenvolver um sistema para monitoramento de falhas em equipamentos do Hospital de Santa Cruz do Sul. A solução visa melhorar a gestão da manutenção, aumentar a eficiência operacional e garantir maior segurança no ambiente hospitalar.
+O Sistema de Gestão de Manutenção do Hospital Santa Cruz (HSC) é uma aplicação web interativa desenvolvida com Streamlit e utilizando Supabase como backend (banco de dados e autenticação).
 
-### Funcionalidades
+A aplicação tem como objetivo otimizar a gestão de ativos e o controle de manutenções hospitalares, oferecendo uma visão integrada do inventário de equipamentos, acompanhamento de ordens de serviço e indicadores de desempenho (KPIs) em tempo real.
 
-- **Dashboard Inicial**: Exibe informações gerais e alertas específicos, organizados por níveis de criticidade (baixa, média, alta).
-- **Cadastro de Equipamentos**: Permite registrar novos equipamentos com dados como nome, localização, tipo e número de patrimônio.
-- **Gestão de Manutenções**:
-  - Registro de falhas e sinalização do motivo da manutenção.
-  - Histórico de ações corretivas realizadas para resolução do problema.
-  - Atualização do status do equipamento (ativo, em manutenção, inativo).
+**✨ Funcionalidades Principais**
+**🔐 Sistema de Login Seguro**
+Acesso restrito com credenciais de administrador via st.secrets.
 
-### Objetivo
+**⚙️ Gestão de Equipamentos (CRUD)**
+Cadastro de novos equipamentos (Nome, Setor, Número de Série).
+Consulta e busca de equipamentos existentes.
+Alteração de status (ex.: Ativo para Inativo).
 
-Facilitar o acompanhamento em tempo real da situação dos equipamentos hospitalares, promovendo uma gestão mais eficiente e proativa das manutenções, com foco na segurança dos pacientes e na continuidade dos serviços médicos.
+**🔧 Gestão de Manutenções (Ordens de Serviço)**
+Abertura de novas manutenções (Preventiva, Corretiva, Urgente) com registro de data/hora de início.
+Finalização de manutenções com registro da resolução e cálculo do tempo de parada.
+Visualização de manutenções em andamento.
+
+**📊 Dashboard Executivo e Relatórios**
+Métricas de desempenho (Disponibilidade Geral, Manutenções/Mês, etc.).
+Gráficos dinâmicos (Plotly Express) de Equipamentos por Setor/Status e Tipos de Manutenção.
+Análise de tempo de parada (Média, Máxima e Total por Equipamento/Setor/Tipo).
+Exportação de dados para CSV.
+
+**🚨 Alertas Inteligentes**
+Avisos automáticos sobre situações críticas:
+Equipamentos com alta recorrência de falhas (4+ em 3 meses).
+Manutenções em andamento com longa duração (mais de 7 dias).
+Setores com baixa disponibilidade.
+Equipamentos sem manutenção preventiva em 6+ meses.
+
+**🚀 Otimização de Performance**
+Uso de vetorização do Pandas e recursos de cache do Streamlit (@st.cache_data, @st.cache_resource) para consultas rápidas ao banco de dados.
+
+**🛠 Tecnologias e Dependências**
+Linguagem: Python
+Framework: Streamlit
+Banco de dados: Supabase
+Principais bibliotecas: pandas, plotly.express, plotly
